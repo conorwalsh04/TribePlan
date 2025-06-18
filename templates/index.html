@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>TribePlan — Mood Tracker</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Mulish&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Kanit&display=swap" rel="stylesheet" />
+    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: 'Mulish', sans-serif;
+        }
+
+        .video-bg {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            z-index: -1;
+            object-fit: cover;
+        }
+
+        .overlay-content {
+            position: relative;
+            z-index: 2;
+            padding-top: 100px;
+            color: white;
+        }
+
+        .form-control, .form-range, .btn {
+            max-width: 600px;
+            margin: auto;
+        }
+
+        .bg-overlay {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            padding: 60px 20px;
+            border-radius: 10px;
+        }
+
+        .list-group-item {
+            background: rgba(255, 255, 255, 0.85);
+            color: #000;
+        }
+
+        footer {
+            z-index: 3;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Fullscreen Video Background -->
+    <video autoplay muted loop class="video-bg">
+        <source src="{{ url_for('static', filename='img/demo-screen.mp4') }}" type="video/mp4" />
+    </video>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light fixed-top shadow-sm bg-light">
+        <div class="container px-5">
+            <a class="navbar-brand fw-bold" href="#page-top">TribePlan</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarResponsive">
+                Menu <i class="bi-list"></i>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarResponsive">
+                <ul class="navbar-nav ms-auto me-4 my-3 my-lg-0">
+                    <li class="nav-item"><a class="nav-link me-lg-3" href="#history">History</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Content Section -->
+    <header class="overlay-content text-center text-white">
+        <div class="container px-4 bg-overlay">
+            <h1 class="display-4 fw-bold">Track your tribe’s mindset.</h1>
+            <p class="lead mb-4">Use TribePlan to reflect, log, and improve your mental flow.</p>
+            <form method="POST">
+                <div class="mb-3">
+                    <label for="mood" class="form-label">Mood: <strong><span id="moodDisplay">3</span></strong> (1 = low, 5 = high)</label>
+                    <input type="range" class="form-range" id="mood" name="mood" min="1" max="5" value="3" required oninput="document.getElementById('moodDisplay').innerText = this.value">
+                </div>
+                <div class="mb-3">
+                    <label for="journal" class="form-label">Journal Entry</label>
+                    <textarea class="form-control" id="journal" name="journal" rows="4" placeholder="How are you feeling today?"></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Save Entry</button>
+            </form>
+            <p class="text-white mt-3">Your data is saved locally to logs.json ✅</p>
+        </div>
+    </header>
+
+    <!-- Mood Log History -->
+    <section class="py-5" id="history">
+        <div class="container px-5">
+            <h3 class="text-white text-center mb-4">📘 Mood Log History</h3>
+            {% if logs %}
+            <div class="list-group">
+                {% for entry in logs|reverse %}
+    {% set mood = entry.mood | int %}
+    {% if mood <= 2 %}
+        {% set mood_class = "mood-low" %}
+    {% elif mood == 3 %}
+        {% set mood_class = "mood-neutral" %}
+    {% else %}
+        {% set mood_class = "mood-high" %}
+    {% endif %}
+
+    <div class="list-group-item mood-entry {{ mood_class }}">
+        <div><strong>{{ entry.date }}</strong></div>
+        <div>Mood: {{ entry.mood }}</div>
+        <div>Journal: {{ entry.journal }}</div>
+    </div>
+{% endfor %}
+
+            </div>
+            {% else %}
+            <p class="text-white text-center">No entries yet.</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-black text-center py-4">
+        <div class="container px-5">
+            <div class="text-white-50 small">
+                &copy; TribePlan 2025. All Rights Reserved.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    <script>
+        const moodSlider = document.getElementById('mood');
+        const moodDisplay = document.getElementById('moodDisplay');
+        if (moodSlider && moodDisplay) {
+            moodDisplay.innerText = moodSlider.value;
+            moodSlider.addEventListener('input', () => {
+                moodDisplay.innerText = moodSlider.value;
+            });
+        }
+    </script>
+</body>
+</html>

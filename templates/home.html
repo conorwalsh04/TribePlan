@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to TribePlan{% endblock %}
+
+{% block content %}
+<div class="overlay-content text-center text-dark">
+    <h1 class="display-4 fw-bold mb-4">Welcome to TribePlan</h1>
+    <p class="lead mb-4">Track your mood, fitness, nutrition — and grow with your tribe.</p>
+
+    <div class="d-flex justify-content-center flex-wrap gap-3 mb-5">
+        <a href="{{ url_for('mood') }}" class="btn btn-outline-primary btn-lg">Mood Check-In</a>
+        <a href="{{ url_for('fitness') }}" class="btn btn-outline-primary btn-lg">Fitness Tracker</a>
+        <a href="{{ url_for('food') }}" class="btn btn-outline-primary btn-lg">Food & Hydration</a>
+        <a href="#" class="btn btn-outline-info btn-lg">Aura AI</a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card bg-dark text-white h-100 shadow">
+                <div class="card-body">
+                    <h5 class="card-title">Mood Summary</h5>
+                    <p class="card-text">Average mood this week: <strong>3.8</strong></p>
+                    <a href="{{ url_for('mood') }}" class="text-info">View more →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark text-white h-100 shadow">
+                <div class="card-body">
+                    <h5 class="card-title">Fitness Overview</h5>
+                    <p class="card-text">Sessions logged: <strong>5</strong></p>
+                    <a href="{{ url_for('fitness') }}" class="text-info">View more →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark text-white h-100 shadow">
+                <div class="card-body">
+                    <h5 class="card-title">Nutrition Summary</h5>
+                    <p class="card-text">Hydration: <strong>Good</strong>, Meals: <strong>15</strong></p>
+                    <a href="{{ url_for('food') }}" class="text-info">View more →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
