@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Food Tracker | TribePlan{% endblock %}
+
+{% block content %}
+<div class="overlay-content container">
+    <h2 class="text-center mb-4">Food Tracker</h2>
+    <form method="POST" class="mb-5">
+        <div class="mb-3">
+            <label for="meal_type" class="form-label">Meal Type</label>
+            <input type="text" class="form-control" id="meal_type" name="meal_type" required>
+        </div>
+        <div class="mb-3">
+            <label for="food_items" class="form-label">Food Items</label>
+            <textarea class="form-control" id="food_items" name="food_items" rows="2" required></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="calories" class="form-label">Calories</label>
+            <input type="number" class="form-control" id="calories" name="calories" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Log Meal</button>
+    </form>
+
+    <h4 class="mb-3">🍽️ Meal Log</h4>
+    {% if logs %}
+        <div class="list-group">
+            {% for entry in logs %}
+                <div class="list-group-item">
+                    <strong>{{ entry.date.strftime('%Y-%m-%d %H:%M:%S') }}</strong><br>
+                    Meal: {{ entry.meal_type }}<br>
+                    Food: {{ entry.food_items }}<br>
+                    Calories: {{ entry.calories }}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No food logs yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

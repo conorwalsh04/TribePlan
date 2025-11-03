@@ -1,0 +1,28 @@
+Metadata-Version: 2.2
+Name: myfitnesspal
+Version: 2.1.2
+Summary: Access health and fitness data stored in Myfitnesspal
+Home-page: http://github.com/coddingtonbear/python-myfitnesspal/
+Author: Adam Coddington
+Author-email: me@adamcoddington.net
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Utilities
+License-File: LICENSE
+Requires-Dist: blessed<2.0,>=1.8.5
+Requires-Dist: lxml<6,>=5.0.2
+Requires-Dist: measurement<4.0,>=3.2.0
+Requires-Dist: python-dateutil<3,>=2.4
+Requires-Dist: requests<3,>=2.17.0
+Requires-Dist: rich<13,>=12
+Requires-Dist: browser_cookie3<1,>=0.16.1
+Requires-Dist: cloudscraper<2,>=1.2.71
+Requires-Dist: typing-extensions==4.12.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary

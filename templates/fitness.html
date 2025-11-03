@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Fitness Tracker | TribePlan{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center mb-4">🏋️‍♂️ Fitness Tracker</h2>
+
+    {% if not strava_connected %}
+        <div class="alert alert-info text-center">
+            <p><strong>Connect your Strava account</strong> to sync fitness data automatically.</p>
+            <a href="{{ url_for('connect_strava') }}" class="btn btn-danger">🚴 Connect to Strava</a>
+        </div>
+    {% else %}
+        <div class="alert alert-success text-center">
+            ✅ Your Strava account is connected.
+        </div>
+    {% endif %}
+
+    <form method="POST" class="mb-5">
+        <div class="mb-3">
+            <label for="exercise" class="form-label">Exercise</label>
+            <input type="text" class="form-control" id="exercise" name="exercise" required>
+        </div>
+        <div class="mb-3">
+            <label for="duration" class="form-label">Duration (mins)</label>
+            <input type="number" class="form-control" id="duration" name="duration" required>
+        </div>
+        <div class="mb-3">
+            <label for="notes" class="form-label">Notes</label>
+            <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn btn-success">Log Workout</button>
+    </form>
+
+    <h4 class="mb-3">🏃‍♀️ Workout History</h4>
+    {% if logs %}
+        <div class="list-group">
+            {% for entry in logs|reverse %}
+                <div class="list-group-item">
+                    <strong>{{ entry.date }}</strong><br>
+                    Exercise: {{ entry.exercise }} ({{ entry.duration }} mins)<br>
+                    Notes: {{ entry.notes }}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No workouts logged yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

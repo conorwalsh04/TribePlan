@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Mood Check-In | TribePlan{% endblock %}
+
+{% block content %}
+<!-- Video Background -->
+<div class="bg-video">
+    <video autoplay muted loop>
+        <source src="{{ url_for('static', filename='img/demo-screen.mp4') }}" type="video/mp4">
+    </video>
+</div>
+
+<!-- Mood Form + History -->
+<div class="overlay-content container">
+    <h2 class="text-center mb-4">Mood Check-In</h2>
+    <form method="POST" class="mb-5">
+        <div class="mb-3">
+            <label for="mood" class="form-label">Mood:
+                <strong><span id="moodDisplay">3</span></strong> (1 = low, 5 = high)
+            </label>
+            <input type="range" class="form-range" id="mood" name="mood" min="1" max="5" value="3"
+                   oninput="document.getElementById('moodDisplay').innerText = this.value" required>
+        </div>
+        <div class="mb-3">
+            <label for="journal" class="form-label">Journal Entry</label>
+            <textarea class="form-control" id="journal" name="journal" rows="3"
+                      placeholder="How are you feeling today?"></textarea>
+        </div>
+        <div class="mb-3">
+    <button type="button" id="voiceBtn" class="btn btn-secondary" onclick="toggleVoiceRecognition()">🎙️ Start Recording</button>
+    <p id="voice-status" class="mt-2 text-muted"></p>
+</div>
+
+        <button type="submit" class="btn btn-primary">Save Entry</button>
+    </form>
+
+    <h4 class="mb-3">🧠 Mood Log History</h4>
+{% if logs %}
+  <div class="list-group">
+    {% for entry in logs %}
+      <div class="list-group-item
+        {% if entry.mood is defined and entry.mood|int <= 2 %}mood-low
+        {% elif entry.mood is defined and entry.mood|int == 3 %}mood-neutral
+        {% elif entry.mood is defined and entry.mood|int >= 4 %}mood-high{% endif %}">
+        <strong>{{ entry.date }}</strong><br>
+        Mood: {{ entry.mood }}<br>
+        Journal: {{ entry.journal }}<br>
+        <div class="mt-2">
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('mood_edit', log_id=entry.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('mood_delete', log_id=entry.id) }}" style="display:inline;">
+            <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this entry?')">Delete</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p>No mood logs yet.</p>
+{% endif %}
+
+
+</div>
+
+<script>
+    const moodSlider = document.getElementById('mood');
+    const moodDisplay = document.getElementById('moodDisplay');
+    if (moodSlider && moodDisplay) {
+        moodDisplay.innerText = moodSlider.value;
+        moodSlider.addEventListener('input', () => {
+            moodDisplay.innerText = moodSlider.value;
+        });
+    }
+</script>
+<script>
+    let recognition;
+    let isRecording = false;
+
+    function toggleVoiceRecognition() {
+        const journalInput = document.getElementById('journal');
+        const status = document.getElementById('voice-status');
+        const voiceBtn = document.getElementById('voiceBtn');
+
+        if (!('webkitSpeechRecognition' in window)) {
+            alert("Sorry, your browser doesn't support voice input.");
+            return;
+        }
+
+        if (!recognition) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = function(event) {
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        const transcript = event.results[i][0].transcript;
+                        journalInput.value += (journalInput.value ? '\n' : '') + transcript;
+                    }
+                }
+            };
+
+            recognition.onerror = (e) => status.innerText = "Error: " + e.error;
+            recognition.onend = () => {
+                status.innerText = "Stopped.";
+                voiceBtn.textContent = "🎙️ Start Recording";
+                isRecording = false;
+            };
+        }
+
+        if (!isRecording) {
+            recognition.start();
+            status.innerText = "Listening... click again to stop.";
+            voiceBtn.textContent = "🛑 Stop Recording";
+            isRecording = true;
+        } else {
+            recognition.stop();
+        }
+    }
+</script>
+
+{% endblock %}
