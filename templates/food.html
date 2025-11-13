@@ -20,20 +20,42 @@
         <button type="submit" class="btn btn-primary">Log Meal</button>
     </form>
 
-    <h4 class="mb-3">🍽️ Meal Log</h4>
-    {% if logs %}
-        <div class="list-group">
-            {% for entry in logs %}
-                <div class="list-group-item">
-                    <strong>{{ entry.date.strftime('%Y-%m-%d %H:%M:%S') }}</strong><br>
-                    Meal: {{ entry.meal_type }}<br>
-                    Food: {{ entry.food_items }}<br>
-                    Calories: {{ entry.calories }}
-                </div>
-            {% endfor %}
+    <h4 class="mb-3">Meal Log</h4>
+{% if logs %}
+  <div class="list-group">
+    {% for entry in logs %}
+      <div class="list-group-item">
+        <strong>{{ entry.date }}</strong><br>
+        Meal: {{ entry.meal_type }}<br>
+        Food: {{ entry.food_items }}<br>
+        Calories: {{ entry.calories }}<br>
+
+        <div class="mt-2">
+          <a
+            class="btn btn-sm btn-outline-secondary"
+            href="{{ url_for('food_edit', log_id=entry.id) }}"
+          >
+            Edit
+          </a>
+
+          <form
+            method="post"
+            action="{{ url_for('food_delete', log_id=entry.id) }}"
+            style="display:inline;"
+          >
+            <button
+              class="btn btn-sm btn-outline-danger"
+              onclick="return confirm('Delete this entry?')"
+            >
+              Delete
+            </button>
+          </form>
         </div>
-    {% else %}
-        <p>No food logs yet.</p>
-    {% endif %}
-</div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p>No food logs yet.</p>
+{% endif %}
+
 {% endblock %}

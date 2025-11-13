@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 import firebase_admin
 from firebase_admin import credentials, firestore
-from firebase_admin import firestore as afs  # for SERVER_TIMESTAMP
 
 from urllib.parse import quote_plus
 import secrets
@@ -23,10 +22,10 @@ firebase_admin.initialize_app(cred)
 # Firestore client
 db = firestore.client()
 
-# Flask app MUST be created before using @app.template_filter
+# Flask app gotta be created before using @app.template_filter
 app = Flask(__name__)
 
-# TEMP until real auth
+# for now until real auth
 USER_ID = "demo_user"
 
 def col(user_id: str, name: str):
@@ -145,7 +144,7 @@ from firebase_admin import firestore as afs  # put this with your other imports,
 def mood():
     logs = []
 
-    # CREATE (keep your existing top-level collection + 'date' field)
+    # CREATE (keep existing top-level collection + 'date' field)
     if request.method == 'POST':
         mood_val = request.form['mood']
         journal = request.form.get('journal', '')
@@ -228,8 +227,9 @@ def mood_edit(log_id):
     return render_template("mood_edit.html", log=data)
 
 
-
-
+# -----------------------------
+# FOOD CRUD
+# -----------------------------
 @app.route('/food', methods=['GET', 'POST'])
 def food():
     logs = []
@@ -247,24 +247,64 @@ def food():
             "calories": calories
         }
 
+        # Write to Firestore
         db.collection('food_logs').add(log_entry)
+        return redirect(url_for('food'))
 
-    # Retrieve from Firestore
+    # Read from Firestore
     docs = db.collection('food_logs').order_by("date", direction=firestore.Query.DESCENDING).stream()
-    for doc in docs:
-        logs.append(doc.to_dict())
+    for d in docs:
+        entry = d.to_dict()
+        entry["id"] = d.id
+        if isinstance(entry.get("date"), datetime):
+            entry["date"] = entry["date"].strftime("%Y-%m-%d %H:%M:%S")
+        logs.append(entry)
 
     return render_template("food.html", logs=logs)
 
 
+@app.route('/food/edit/<log_id>', methods=['GET', 'POST'])
+def food_edit(log_id):
+    ref = db.collection('food_logs').document(log_id)
+
+    if request.method == 'POST':
+        meal_type = request.form['meal_type']
+        food_items = request.form['food_items']
+        calories = request.form['calories']
+
+        ref.update({
+            "meal_type": meal_type,
+            "food_items": food_items,
+            "calories": calories
+        })
+        return redirect(url_for('food'))
+
+    snap = ref.get()
+    if not snap.exists:
+        return "Food log not found", 404
+
+    data = snap.to_dict()
+    data["id"] = log_id
+    if isinstance(data.get("date"), datetime):
+        data["date"] = data["date"].strftime("%Y-%m-%d %H:%M:%S")
+    return render_template("food_edit.html", log=data)
+
+
+@app.route('/food/delete/<log_id>', methods=['POST'])
+def food_delete(log_id):
+    db.collection('food_logs').document(log_id).delete()
+    return redirect(url_for('food'))
+
+
+# -----------------------------
+# FITNESS CRUD
+# -----------------------------
 @app.route('/fitness', methods=['GET', 'POST'])
 def fitness():
     logs = []
 
-    # Check Strava connection state (temporary logic)
     strava_connected = is_strava_connected()
 
-    # Prepare Strava Auth URL (only if not connected)
     client_id = os.getenv("STRAVA_CLIENT_ID")
     redirect_uri = os.getenv("STRAVA_REDIRECT_URI")
     scope = "activity:read_all"
@@ -273,12 +313,6 @@ def fitness():
         f"https://www.strava.com/oauth/authorize?client_id={client_id}"
         f"&redirect_uri={redirect_uri}&response_type=code&scope={scope}"
     )
-
-    # Load local fallback logs (optional)
-    if os.path.exists("data/logs.json"):
-        with open("data/logs.json", "r") as f:
-            local_logs = json.load(f)
-            logs.extend(local_logs)
 
     if request.method == 'POST':
         exercise = request.form['exercise']
@@ -293,25 +327,53 @@ def fitness():
             "notes": notes
         }
 
-        # Save to Firestore
         db.collection('fitness_logs').add(log_entry)
+        return redirect(url_for('fitness'))
 
-        # Save locally (optional)
-        logs.append({
-            "date": now.strftime("%Y-%m-%d %H:%M:%S"),
+    # Read from Firestore
+    docs = db.collection('fitness_logs').order_by("date", direction=firestore.Query.DESCENDING).stream()
+    for d in docs:
+        entry = d.to_dict()
+        entry["id"] = d.id
+        if isinstance(entry.get("date"), datetime):
+            entry["date"] = entry["date"].strftime("%Y-%m-%d %H:%M:%S")
+        logs.append(entry)
+
+    return render_template("fitness.html", logs=logs, strava_connected=strava_connected)
+
+
+@app.route('/fitness/edit/<log_id>', methods=['GET', 'POST'])
+def fitness_edit(log_id):
+    ref = db.collection('fitness_logs').document(log_id)
+
+    if request.method == 'POST':
+        exercise = request.form['exercise']
+        duration = request.form['duration']
+        notes = request.form['notes']
+
+        ref.update({
             "exercise": exercise,
             "duration": duration,
             "notes": notes
         })
-        with open("data/logs.json", "w") as f:
-            json.dump(logs, f, indent=4)
+        return redirect(url_for('fitness'))
 
-    return render_template(
-        "fitness.html",
-        logs=logs,
-        strava_connected=strava_connected
-    )
+    snap = ref.get()
+    if not snap.exists:
+        return "Fitness log not found", 404
 
+    data = snap.to_dict()
+    data["id"] = log_id
+    if isinstance(data.get("date"), datetime):
+        data["date"] = data["date"].strftime("%Y-%m-%d %H:%M:%S")
+
+    return render_template("fitness_edit.html", log=data)
+
+
+@app.route('/fitness/delete/<log_id>', methods=['POST'])
+def fitness_delete(log_id):
+    db.collection('fitness_logs').document(log_id).delete()
+    return redirect(url_for('fitness'))
 
 if __name__ == '__main__':
     app.run(debug=True)

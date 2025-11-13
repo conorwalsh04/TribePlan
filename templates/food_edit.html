@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Edit Food Entry | TribePlan{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4">Edit Food Entry</h2>
+  <form method="POST">
+    <div class="mb-3">
+      <label class="form-label">Meal Type</label>
+      <input
+        type="text"
+        class="form-control"
+        name="meal_type"
+        value="{{ log.meal_type }}"
+        required
+      >
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Food Items</label>
+      <textarea
+        class="form-control"
+        name="food_items"
+        rows="2"
+        required
+      >{{ log.food_items }}</textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Calories</label>
+      <input
+        type="number"
+        class="form-control"
+        name="calories"
+        value="{{ log.calories }}"
+        required
+      >
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+    <a href="{{ url_for('food') }}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

@@ -53,5 +53,15 @@
         "date": "2025-11-03 10:20:54",
         "mood": "4",
         "journal": "hello"
+    },
+    {
+        "date": "2025-11-07 22:25:05",
+        "mood": "5",
+        "journal": "I am Feeling great today "
+    },
+    {
+        "date": "2025-11-10 13:34:21",
+        "mood": "4",
+        "journal": "im feeling good "
     }
 ]
