@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | TribePlan{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4">Your Dashboard</h2>
+  
+  {% if profile %}
+  <div class="alert alert-info mb-4">
+    <strong>Welcome, {{ profile.name or 'User' }}!</strong>
+    {% if not profile.name or not profile.height or not profile.weight %}
+    <p class="mb-0 mt-2">
+      Complete your profile to enable buddy matching: 
+      <a href="{{ url_for('profile') }}" class="alert-link">Update Profile</a>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-4">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title">Mood logs</h5>
+          <p class="display-6">{{ mood_count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title">Food logs</h5>
+          <p class="display-6">{{ food_count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title">Fitness logs</h5>
+          <p class="display-6">{{ fitness_count }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {% if profile %}
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">Profile Summary</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <p><strong>Name:</strong> {{ profile.name or 'Not set' }}</p>
+          <p><strong>Email:</strong> {{ profile.email or 'Not set' }}</p>
+          <p><strong>Height:</strong> {{ profile.height or 'Not set' }}{% if profile.height %} cm{% endif %}</p>
+          <p><strong>Weight:</strong> {{ profile.weight or 'Not set' }}{% if profile.weight %} kg{% endif %}</p>
+        </div>
+        <div class="col-md-6">
+          <p><strong>Goals:</strong></p>
+          <p>{{ profile.goals or 'No goals set yet' }}</p>
+        </div>
+      </div>
+      <a href="{{ url_for('profile') }}" class="btn btn-primary">Edit Profile</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

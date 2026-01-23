@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Profile | TribePlan{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4">Your Profile</h2>
+  
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('profile') }}">
+            <div class="mb-3">
+              <label for="name" class="form-label">Name</label>
+              <input type="text" class="form-control" id="name" name="name" 
+                     value="{{ profile.name or '' }}" placeholder="Enter your name">
+            </div>
+            
+            <div class="mb-3">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" class="form-control" id="email" name="email" 
+                     value="{{ profile.email or '' }}" disabled>
+              <small class="form-text text-muted">Email cannot be changed here</small>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="height" class="form-label">Height (cm)</label>
+                <input type="number" class="form-control" id="height" name="height" 
+                       value="{{ profile.height or '' }}" placeholder="e.g., 175" step="0.1" min="0">
+              </div>
+              
+              <div class="col-md-6 mb-3">
+                <label for="weight" class="form-label">Weight (kg)</label>
+                <input type="number" class="form-control" id="weight" name="weight" 
+                       value="{{ profile.weight or '' }}" placeholder="e.g., 70" step="0.1" min="0">
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="goals" class="form-label">Fitness & Health Goals</label>
+              <textarea class="form-control" id="goals" name="goals" rows="4" 
+                        placeholder="Enter your fitness and health goals (e.g., Run 5km 3x per week, Build muscle, Lose 10kg, etc.)">{{ profile.goals or '' }}</textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Save Profile</button>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Why this matters</h5>
+          <p class="card-text">
+            Your profile information helps us match you with workout buddies who share similar goals 
+            and are located nearby. This data is private and only used for the buddy matching system.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

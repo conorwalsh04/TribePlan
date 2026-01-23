@@ -1,0 +1,28 @@
+# Environment variables
+.env
+
+# Firebase credentials
+firebase/*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local data files
+data/*.json
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Login | TribePlan{% endblock %}
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+  <div class="col-md-5 col-lg-4">
+    <div class="overlay-content">
+      <div class="text-center mb-4">
+        <h2 class="display-5 fw-bold mb-2">Welcome Back</h2>
+        <p class="text-muted">Sign in to continue your journey</p>
+      </div>
+      
+      {% if error %}
+        <div class="alert alert-danger" role="alert">
+          {{ error }}
+        </div>
+      {% endif %}
+      
+      <form method="POST">
+        <div class="mb-3">
+          <label for="email" class="form-label fw-semibold">Email Address</label>
+          <input type="email" class="form-control form-control-lg" id="email" name="email" 
+                 placeholder="your@email.com" required autofocus>
+        </div>
+        
+        <div class="mb-4">
+          <label for="password" class="form-label fw-semibold">Password</label>
+          <input type="password" class="form-control form-control-lg" id="password" name="password" 
+                 placeholder="Enter your password" required>
+        </div>
+        
+        <div class="d-grid mb-3">
+          <button type="submit" class="btn btn-primary btn-lg">Sign In</button>
+        </div>
+        
+        <div class="text-center">
+          <p class="mb-0">
+            Don't have an account? 
+            <a href="{{ url_for('register') }}" class="text-primary fw-semibold text-decoration-none">
+              Create one here
+            </a>
+          </p>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
