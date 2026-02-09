@@ -4,12 +4,22 @@
 
 {% block content %}
 <div class="overlay-content text-center text-dark">
-    <h1 class="display-4 fw-bold mb-4">Welcome to TribePlan</h1>
+    {% if not is_logged_in %}
+    <img src="{{ url_for('static', filename='img/logo-light.png') }}" alt="TribePlan" height="120" class="mb-4">
+    {% endif %}
+    
+    <h1 class="display-4 fw-bold mb-3">
+        {% if is_logged_in and profile.name %}
+        Welcome back, {{ profile.name.split()[0] }}!
+        {% else %}
+        Welcome to TribePlan
+        {% endif %}
+    </h1>
     <p class="lead mb-4">Track your mood, fitness, nutrition — and grow with your tribe.</p>
 
     {% if not is_logged_in %}
     <div class="alert alert-info mb-4" role="alert">
-        <strong>👋 Welcome!</strong> You're viewing TribePlan in guest mode. 
+        <strong>Welcome!</strong> You're viewing TribePlan in guest mode. 
         <a href="{{ url_for('login') }}" class="alert-link fw-semibold">Sign in</a> or 
         <a href="{{ url_for('register') }}" class="alert-link fw-semibold">create an account</a> 
         to start logging your wellness data.
@@ -20,8 +30,8 @@
         {% if is_logged_in %}
         <a href="{{ url_for('mood') }}" class="btn btn-outline-primary btn-lg">Mood Check-In</a>
         <a href="{{ url_for('fitness') }}" class="btn btn-outline-primary btn-lg">Fitness Tracker</a>
-        <a href="{{ url_for('food') }}" class="btn btn-outline-primary btn-lg">Food & Hydration</a>
-        <a href="#" class="btn btn-outline-info btn-lg">Aura AI</a>
+        <a href="{{ url_for('food') }}" class="btn btn-outline-primary btn-lg">Food Log</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-info btn-lg">Dashboard</a>
         {% else %}
         <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Get Started - Sign In</a>
         <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">Create Account</a>
@@ -29,58 +39,125 @@
     </div>
 
     {% if is_logged_in %}
+    <!-- Real User Stats -->
     <div class="row g-4">
         <div class="col-md-4">
             <div class="card bg-dark text-white h-100 shadow">
                 <div class="card-body">
-                    <h5 class="card-title">Mood Summary</h5>
-                    <p class="card-text">Average mood this week: <strong>3.8</strong></p>
-                    <a href="{{ url_for('mood') }}" class="text-info">View more →</a>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="card-title mb-0">Mood</h5>
+                        <span class="badge bg-primary">{{ stats.mood_count }} logs</span>
+                    </div>
+                    {% if stats.mood_avg %}
+                    <p class="display-5 mb-1">{{ stats.mood_avg }}<small class="fs-6 text-muted">/5</small></p>
+                    <p class="text-muted small mb-2">Average mood score</p>
+                    {% else %}
+                    <p class="text-muted mb-2">No mood logs yet</p>
+                    {% endif %}
+                    <a href="{{ url_for('mood') }}" class="btn btn-sm btn-outline-info">Log Mood</a>
                 </div>
             </div>
         </div>
+        
         <div class="col-md-4">
             <div class="card bg-dark text-white h-100 shadow">
                 <div class="card-body">
-                    <h5 class="card-title">Fitness Overview</h5>
-                    <p class="card-text">Sessions logged: <strong>5</strong></p>
-                    <a href="{{ url_for('fitness') }}" class="text-info">View more →</a>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="card-title mb-0">Fitness</h5>
+                        {% if stats.strava_connected %}
+                        <span class="badge bg-success">Strava</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ stats.fitness_count }} sessions</span>
+                        {% endif %}
+                    </div>
+                    {% if stats.fitness_count > 0 %}
+                    <p class="display-5 mb-1">{{ stats.fitness_mins }}<small class="fs-6 text-muted"> mins</small></p>
+                    <p class="text-muted small mb-2">
+                        {% if stats.recent_workout %}
+                        Last: {{ stats.recent_workout }}
+                        {% else %}
+                        Total workout time
+                        {% endif %}
+                    </p>
+                    {% else %}
+                    <p class="text-muted mb-2">No workouts logged yet</p>
+                    {% endif %}
+                    <a href="{{ url_for('fitness') }}" class="btn btn-sm btn-outline-info">
+                        {% if stats.strava_connected %}Sync Strava{% else %}Log Workout{% endif %}
+                    </a>
                 </div>
             </div>
         </div>
+        
         <div class="col-md-4">
             <div class="card bg-dark text-white h-100 shadow">
                 <div class="card-body">
-                    <h5 class="card-title">Nutrition Summary</h5>
-                    <p class="card-text">Hydration: <strong>Good</strong>, Meals: <strong>15</strong></p>
-                    <a href="{{ url_for('food') }}" class="text-info">View more →</a>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="card-title mb-0">Nutrition</h5>
+                        <span class="badge bg-warning text-dark">{{ stats.food_count }} meals</span>
+                    </div>
+                    {% if stats.food_count > 0 %}
+                    <p class="display-5 mb-1">{{ "{:,}".format(stats.total_calories) }}<small class="fs-6 text-muted"> kcal</small></p>
+                    <p class="text-muted small mb-2">Total calories logged</p>
+                    {% else %}
+                    <p class="text-muted mb-2">No meals logged yet</p>
+                    {% endif %}
+                    <a href="{{ url_for('food') }}" class="btn btn-sm btn-outline-info">Log Meal</a>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        {% if not stats.strava_connected %}
+                        <a href="{{ url_for('connect_strava') }}" class="btn btn-danger btn-sm">
+                            Connect Strava
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('profile') }}" class="btn btn-outline-secondary btn-sm">
+                            Edit Profile
+                        </a>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary btn-sm">
+                            View Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     {% else %}
+    <!-- Features for non-logged-in users -->
     <div class="row g-4 mt-4">
         <div class="col-md-4">
             <div class="card bg-dark text-white h-100 shadow">
-                <div class="card-body">
-                    <h5 class="card-title">📊 Track Your Mood</h5>
-                    <p class="card-text">Log daily mood check-ins and journal entries to monitor your emotional wellness.</p>
+                <div class="card-body text-center">
+                    <div class="display-4 mb-3">📊</div>
+                    <h5 class="card-title">Track Your Mood</h5>
+                    <p class="card-text">Log daily mood check-ins and journal entries to monitor your emotional wellness over time.</p>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card bg-dark text-white h-100 shadow">
-                <div class="card-body">
-                    <h5 class="card-title">💪 Fitness Tracker</h5>
-                    <p class="card-text">Record workouts, exercises, and connect with Strava to track your fitness journey.</p>
+                <div class="card-body text-center">
+                    <div class="display-4 mb-3">💪</div>
+                    <h5 class="card-title">Fitness Tracker</h5>
+                    <p class="card-text">Record workouts manually or connect with Strava to automatically sync your fitness activities.</p>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card bg-dark text-white h-100 shadow">
-                <div class="card-body">
-                    <h5 class="card-title">🍎 Nutrition Log</h5>
-                    <p class="card-text">Monitor meals, calories, and hydration to maintain a balanced diet.</p>
+                <div class="card-body text-center">
+                    <div class="display-4 mb-3">🍎</div>
+                    <h5 class="card-title">Nutrition Log</h5>
+                    <p class="card-text">Monitor your meals and calories to maintain a balanced diet and reach your health goals.</p>
                 </div>
             </div>
         </div>

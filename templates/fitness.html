@@ -2,71 +2,191 @@
 {% block title %}Fitness Tracker | TribePlan{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <h2 class="text-center mb-4">🏋️‍♂️ Fitness Tracker</h2>
+<div class="container mt-4">
+    <h2 class="text-center mb-4">Fitness Tracker</h2>
 
-    {% if not strava_connected %}
-        <div class="alert alert-info text-center">
-            <p><strong>Connect your Strava account</strong> to sync fitness data automatically.</p>
-            <a href="{{ url_for('connect_strava') }}" class="btn btn-danger">🚴 Connect to Strava</a>
+    <!-- Strava Connection Status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            {% if not strava_connected %}
+            <div class="card border-warning">
+                <div class="card-body text-center py-4">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/cb/Strava_Logo.svg" alt="Strava" style="height: 30px;" class="mb-3">
+                    <h5>Connect with Strava</h5>
+                    <p class="text-muted mb-3">Automatically sync your runs, rides, and workouts from Strava.</p>
+                    <a href="{{ url_for('connect_strava') }}" class="btn btn-danger">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-lightning-fill me-1" viewBox="0 0 16 16">
+                            <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                        </svg>
+                        Connect Strava
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <div class="card border-success bg-success bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-success me-2">Connected</span>
+                            <span>Strava account linked</span>
+                        </div>
+                        <a href="{{ url_for('fitness_strava_sync') }}" class="btn btn-warning btn-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat me-1" viewBox="0 0 16 16">
+                                <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
+                                <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
+                            </svg>
+                            Sync Activities
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
-    {% else %}
-        <div class="alert alert-success text-center">
-            ✅ Your Strava account is connected.
-        </div>
-    {% endif %}
+    </div>
 
-    <form method="POST" class="mb-5">
-        <div class="mb-3">
-            <label for="exercise" class="form-label">Exercise</label>
-            <input type="text" class="form-control" id="exercise" name="exercise" required>
+    <!-- Workout Minutes Chart -->
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Workout Minutes (Last 14 Days)</h5></div>
+        <div class="card-body">
+            <canvas id="fitnessChart" height="180"></canvas>
         </div>
-        <div class="mb-3">
-            <label for="duration" class="form-label">Duration (mins)</label>
-            <input type="number" class="form-control" id="duration" name="duration" required>
+    </div>
+
+    <div class="row">
+        <!-- Manual Log Form -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Log Workout</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="exercise" class="form-label">Exercise</label>
+                            <input type="text" class="form-control" id="exercise" name="exercise" placeholder="e.g., Morning Run" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="duration" class="form-label">Duration (mins)</label>
+                            <input type="number" class="form-control" id="duration" name="duration" placeholder="30" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="2" placeholder="How did it feel?"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Log Workout</button>
+                    </form>
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="notes" class="form-label">Notes</label>
-            <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+
+        <!-- Workout History -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Workout History</h5>
+                    <span class="badge bg-primary">{{ logs|length }} workouts</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if logs %}
+                    <div class="list-group list-group-flush">
+                        {% for entry in logs %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-1">
+                                        {% if entry.source == 'strava' %}
+                                        <span class="badge bg-danger me-2" title="Synced from Strava">Strava</span>
+                                        {% endif %}
+                                        <h6 class="mb-0">{{ entry.exercise }}</h6>
+                                    </div>
+                                    <small class="text-muted">{{ entry.date }}</small>
+                                    
+                                    <!-- Activity Stats -->
+                                    <div class="mt-2">
+                                        <span class="badge bg-light text-dark me-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-clock me-1" viewBox="0 0 16 16">
+                                                <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                                                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                                            </svg>
+                                            {{ entry.duration }} min
+                                        </span>
+                                        
+                                        {% if entry.distance_km %}
+                                        <span class="badge bg-light text-dark me-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-geo-alt me-1" viewBox="0 0 16 16">
+                                                <path d="M12.166 8.94c-.524 1.062-1.234 2.12-1.96 3.07A31.493 31.493 0 0 1 8 14.58a31.481 31.481 0 0 1-2.206-2.57c-.726-.95-1.436-2.008-1.96-3.07C3.304 7.867 3 6.862 3 6a5 5 0 0 1 10 0c0 .862-.305 1.867-.834 2.94zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z"/>
+                                                <path d="M8 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                                            </svg>
+                                            {{ entry.distance_km }} km
+                                        </span>
+                                        {% endif %}
+                                        
+                                        {% if entry.calories %}
+                                        <span class="badge bg-light text-dark me-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-fire me-1" viewBox="0 0 16 16">
+                                                <path d="M8 16c3.314 0 6-2 6-5.5 0-1.5-.5-4-2.5-6 .25 1.5-1.25 2-1.25 2C11 4 9 .5 6 0c.357 2 .5 4-2 6-1.25 1-2 2.729-2 4.5C2 14 4.686 16 8 16Zm0-1c-1.657 0-3-1-3-2.75 0-.75.25-2 1.25-3C6.125 10 7 10.5 7 10.5c-.375-1.25.5-3.25 2-3.5-.179 1-.25 2 1 3 .625.5 1 1.364 1 2.25C11 14 9.657 15 8 15Z"/>
+                                            </svg>
+                                            {{ entry.calories }} cal
+                                        </span>
+                                        {% endif %}
+                                        
+                                        {% if entry.avg_heartrate %}
+                                        <span class="badge bg-light text-dark">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-heart-pulse me-1" viewBox="0 0 16 16">
+                                                <path d="m8 2.748-.717-.737C5.6.281 2.514.878 1.4 3.053.918 3.995.78 5.323 1.508 7H.43c-2.128-5.697 4.165-8.83 7.394-5.857.06.055.119.112.176.171a3.12 3.12 0 0 1 .176-.17c3.23-2.974 9.522.159 7.394 5.856h-1.078c.728-1.677.59-3.005.108-3.947C13.486.878 10.4.28 8.717 2.01L8 2.748ZM2.212 10h1.315C4.593 11.183 6.05 12.458 8 13.795c1.949-1.337 3.407-2.612 4.473-3.795h1.315c-1.265 1.559-3.124 3.187-5.788 5-2.664-1.813-4.523-3.441-5.788-5Z"/>
+                                            </svg>
+                                            {{ entry.avg_heartrate|int }} bpm
+                                        </span>
+                                        {% endif %}
+                                        
+                                        {% if entry.sport_type %}
+                                        <span class="badge bg-secondary">{{ entry.sport_type }}</span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if entry.notes and entry.source != 'strava' %}
+                                    <p class="text-muted small mt-2 mb-0">{{ entry.notes }}</p>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="btn-group btn-group-sm">
+                                    {% if entry.source != 'strava' %}
+                                    <a href="{{ url_for('fitness_edit', log_id=entry.id) }}" class="btn btn-outline-secondary">Edit</a>
+                                    {% endif %}
+                                    <form method="post" action="{{ url_for('fitness_delete', log_id=entry.id) }}" style="display:inline;">
+                                        <button class="btn btn-outline-danger" onclick="return confirm('Delete this entry?')">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="text-muted mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-activity" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M6 2a.5.5 0 0 1 .47.33L10 12.036l1.53-4.208A.5.5 0 0 1 12 7.5h3.5a.5.5 0 0 1 0 1h-3.15l-1.88 5.17a.5.5 0 0 1-.94 0L6 3.964 4.47 8.171A.5.5 0 0 1 4 8.5H.5a.5.5 0 0 1 0-1h3.15l1.88-5.17A.5.5 0 0 1 6 2Z"/>
+                            </svg>
+                        </div>
+                        <p class="text-muted">No workouts logged yet.</p>
+                        <p class="small text-muted">Log a workout manually or sync from Strava to get started!</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
-        <button type="submit" class="btn btn-success">Log Workout</button>
-    </form>
-
-    <h4 class="mb-3">Workout History</h4>
-{% if logs %}
-  <div class="list-group">
-    {% for entry in logs %}
-      <div class="list-group-item">
-        <strong>{{ entry.date }}</strong><br>
-        Exercise: {{ entry.exercise }} ({{ entry.duration }} mins)<br>
-        Notes: {{ entry.notes }}<br>
-
-        <div class="mt-2">
-          <a
-            class="btn btn-sm btn-outline-secondary"
-            href="{{ url_for('fitness_edit', log_id=entry.id) }}"
-          >
-            Edit
-          </a>
-
-          <form
-            method="post"
-            action="{{ url_for('fitness_delete', log_id=entry.id) }}"
-            style="display:inline;"
-          >
-            <button
-              class="btn btn-sm btn-outline-danger"
-              onclick="return confirm('Delete this entry?')"
-            >
-              Delete
-            </button>
-          </form>
-        </div>
-      </div>
-    {% endfor %}
-  </div>
-{% else %}
-  <p>No workouts logged yet.</p>
-{% endif %}
-
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+fetch('/api/charts').then(r=>r.json()).then(d=>{
+  if(document.getElementById('fitnessChart')&&d.labels){
+    new Chart(document.getElementById('fitnessChart'),{
+      type:'bar',
+      data:{labels:d.labels,datasets:[{label:'Minutes',data:d.fitness,backgroundColor:'rgba(255,193,7,0.6)',borderColor:'#ffc107',borderWidth:1}]},
+      options:{responsive:true}
+    });
+  }
+}).catch(()=>{});
+</script>
 {% endblock %}

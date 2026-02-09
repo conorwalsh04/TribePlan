@@ -12,6 +12,15 @@
 <!-- Mood Form + History -->
 <div class="overlay-content container">
     <h2 class="text-center mb-4">Mood Check-In</h2>
+
+    <!-- Mood Chart -->
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Mood Over Time</h5></div>
+        <div class="card-body">
+            <canvas id="moodChart" height="180"></canvas>
+        </div>
+    </div>
+
     <form method="POST" class="mb-5">
         <div class="mb-3">
             <label for="mood" class="form-label">Mood:
@@ -60,6 +69,18 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    fetch('/api/charts').then(r=>r.json()).then(d=>{
+        if(document.getElementById('moodChart')&&d.labels&&d.mood){
+            new Chart(document.getElementById('moodChart'),{
+                type:'line',
+                data:{labels:d.labels,datasets:[{label:'Mood (1-5)',data:d.mood,borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.1)',fill:true,tension:0.3}]},
+                options:{responsive:true,scales:{y:{min:1,max:5}}}
+            });
+        }
+    }).catch(()=>{});
+</script>
 <script>
     const moodSlider = document.getElementById('mood');
     const moodDisplay = document.getElementById('moodDisplay');

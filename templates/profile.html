@@ -36,6 +36,21 @@
               </div>
             </div>
             
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="city" class="form-label">City</label>
+                <input type="text" class="form-control" id="city" name="city" 
+                       value="{{ profile.city or '' }}" placeholder="e.g., Dublin">
+              </div>
+              
+              <div class="col-md-6 mb-3">
+                <label for="country" class="form-label">Country Code</label>
+                <input type="text" class="form-control" id="country" name="country" 
+                       value="{{ profile.country or '' }}" placeholder="e.g., IE" maxlength="2">
+                <small class="form-text text-muted">2-letter code (IE, UK, US, etc.)</small>
+              </div>
+            </div>
+            
             <div class="mb-3">
               <label for="goals" class="form-label">Fitness & Health Goals</label>
               <textarea class="form-control" id="goals" name="goals" rows="4" 
