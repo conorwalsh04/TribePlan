@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Integrations | TribePlan{% endblock %}
+{% block content %}
+<div class="overlay-content container">
+  <h2 class="mb-4">Integrations</h2>
+
+  <!-- Strava -->
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/c/cb/Strava_Logo.svg" alt="Strava" style="height: 28px;" class="me-3">
+      <h5 class="mb-0">Strava</h5>
+    </div>
+    <div class="card-body">
+      {% if strava_connected %}
+        <div class="d-flex flex-wrap align-items-start gap-4">
+          {% if athlete.profile %}
+          <img src="{{ athlete.profile }}" alt="Profile" class="rounded-circle" style="width: 64px; height: 64px; object-fit: cover;">
+          {% endif %}
+          <div>
+            <p class="mb-1">
+              <strong>Status:</strong> <span class="badge bg-success">Connected</span>
+            </p>
+            {% if athlete.firstname or athlete.lastname %}
+            <p class="mb-1"><strong>Athlete:</strong> {{ athlete.firstname or '' }} {{ athlete.lastname or '' }}</p>
+            {% endif %}
+            {% if last_sync_str %}
+            <p class="mb-2 text-muted small"><strong>Last sync:</strong> {{ last_sync_str }}</p>
+            {% else %}
+            <p class="mb-2 text-muted small"><strong>Last sync:</strong> Never</p>
+            {% endif %}
+          </div>
+        </div>
+        <div class="mt-3">
+          <a href="{{ url_for('fitness_strava_sync') }}?redirect=integrations" class="btn btn-warning btn-sm">Sync now</a>
+          <form method="POST" action="{{ url_for('strava_disconnect') }}" class="d-inline" onsubmit="return confirm('Disconnect Strava? Your imported workouts will be kept.');">
+            <button type="submit" class="btn btn-outline-danger btn-sm">Disconnect</button>
+          </form>
+        </div>
+      {% else %}
+        <p class="mb-3">Connect Strava to automatically sync your runs, rides, and workouts.</p>
+        <a href="{{ url_for('connect_strava') }}" class="btn btn-danger">Connect Strava</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -11202,3 +11202,108 @@ footer a:hover, footer a:active, footer a:focus {
 .mood-high {
     background-color: #e6ffed;
 }
+
+/* ========== TribePlan brand & Figma-style UI ========== */
+:root {
+  --tribeplan-blue: #2563eb;
+  --tribeplan-teal: #14b8a6;
+  --tribeplan-nav-bg: #0f172a;
+  --tribeplan-card-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --tribeplan-card-shadow-hover: 0 12px 24px rgba(0,0,0,0.12);
+}
+
+/* Nav: dark bar + pill links with hover */
+.tribeplan-nav {
+  background: var(--tribeplan-nav-bg) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.tribeplan-logo {
+  margin-right: 0.5rem;
+}
+.navbar-toggler-light .navbar-toggler-icon { filter: invert(1); }
+.tribeplan-nav-pills { gap: 0.25rem; }
+.tribeplan-pill {
+  color: rgba(255,255,255,0.85) !important;
+  border-radius: 50rem;
+  padding: 0.45rem 0.9rem !important;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+}
+.tribeplan-pill:hover,
+.tribeplan-pill:focus,
+.nav-link.tribeplan-pill.active {
+  color: #fff !important;
+  background: rgba(255,255,255,0.12);
+}
+.tribeplan-pill-cta {
+  background: linear-gradient(135deg, var(--tribeplan-blue), var(--tribeplan-teal));
+  color: #fff !important;
+}
+.tribeplan-pill-cta:hover { opacity: 0.95; color: #fff !important; }
+.tribeplan-pill-logout { color: rgba(255,255,255,0.7) !important; }
+.dropdown-menu.tribeplan-dropdown {
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 0.5rem;
+}
+.tribeplan-dropdown .dropdown-item {
+  color: rgba(255,255,255,0.9);
+  border-radius: 8px;
+}
+.tribeplan-dropdown .dropdown-item:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+/* Footer */
+.tribeplan-footer {
+  background: var(--tribeplan-nav-bg);
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Cards: white with elevation on hover (dashboard & buddies) */
+.tribeplan-card {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 16px;
+  box-shadow: var(--tribeplan-card-shadow);
+  transition: box-shadow 0.25s ease, transform 0.2s ease;
+}
+.tribeplan-card:hover {
+  box-shadow: var(--tribeplan-card-shadow-hover);
+  transform: translateY(-2px);
+}
+.tribeplan-card .card-header {
+  background: transparent;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  font-weight: 600;
+  border-radius: 16px 16px 0 0;
+}
+
+/* Gradient welcome banner */
+.tribeplan-hero {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+  color: #fff;
+  border-radius: 20px;
+  padding: 1.75rem 2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 24px rgba(15,23,42,0.25);
+}
+.tribeplan-hero h1, .tribeplan-hero .lead { color: #fff; margin-bottom: 0.25rem; }
+.tribeplan-hero .lead { opacity: 0.9; }
+
+/* Logo: blend black background into any background so it never shows a black box */
+.tribeplan-logo-img {
+  mix-blend-mode: lighten;
+  vertical-align: middle;
+}
+/* Dark wrapper for logo on light backgrounds (login, register, home) so black blends into this */
+.tribeplan-logo-wrap {
+  background: var(--tribeplan-nav-bg);
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  display: inline-block;
+}
+.tribeplan-logo-wrap .tribeplan-logo-img {
+  display: block;
+}

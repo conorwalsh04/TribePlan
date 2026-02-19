@@ -5,6 +5,156 @@
 <div class="overlay-content container">
     <h2 class="text-center mb-4">Food Tracker</h2>
 
+    <!-- Goals & Plan (weight target, timeframe, calories/macros to achieve) -->
+    {% if targets %}
+    <div class="card mb-4 border-success">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Your Nutrition Goals & Plan</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <div class="bg-light rounded p-3 h-100">
+                        <div class="text-muted small">Weight Goal</div>
+                        <strong>{{ targets.current_weight }} kg</strong>
+                        {% if targets.goal_type == 'lose' and targets.target_weight %}→
+                        <span class="text-success">{{ targets.target_weight }} kg</span> (lose)
+                        {% elif targets.goal_type == 'gain' and targets.target_weight %}→
+                        <span class="text-primary">{{ targets.target_weight }} kg</span> (gain)
+                        {% else %}— maintain{% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="bg-light rounded p-3 h-100">
+                        <div class="text-muted small">Timeframe</div>
+                        <strong>{{ targets.target_weeks }} weeks</strong>
+                        {% if targets.weekly_rate_kg %}
+                        <br><small>{{ targets.weekly_rate_kg|abs }} kg/week</small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="bg-light rounded p-3 h-100">
+                        <div class="text-muted small">Reach goal by</div>
+                        {% if targets.projected_date %}
+                        <strong>{{ targets.projected_date.strftime('%b %d, %Y') }}</strong>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="row g-2">
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 text-center">
+                        <div class="text-muted small">Daily Calories</div>
+                        <strong>{{ targets.daily_calories }}</strong> kcal
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 text-center">
+                        <div class="text-muted small">Protein</div>
+                        <strong>{{ targets.protein_g }}</strong> g
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 text-center">
+                        <div class="text-muted small">Carbs</div>
+                        <strong>{{ targets.carbs_g }}</strong> g
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 text-center">
+                        <div class="text-muted small">Fat</div>
+                        <strong>{{ targets.fat_g }}</strong> g
+                    </div>
+                </div>
+            </div>
+            <p class="text-muted small mt-2 mb-0">Based on TDEE ~{{ targets.tdee }} kcal. <a href="{{ url_for('profile') }}">Edit profile</a> to change goals.</p>
+        </div>
+    </div>
+
+    <!-- Today's Progress (consumed vs targets) -->
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Today's Progress</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="border rounded p-3 text-center">
+                        <div class="text-muted small">Calories</div>
+                        <strong>{{ today_totals.calories }}</strong> / {{ targets.daily_calories }} kcal
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-success" style="width: {{ [100, (today_totals.calories / targets.daily_calories * 100) if targets.daily_calories else 0]|min|int }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 text-center">
+                        <div class="text-muted small">Protein</div>
+                        <strong>{{ today_totals.protein_g }}</strong> / {{ targets.protein_g }}g
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-info" style="width: {{ [100, (today_totals.protein_g / targets.protein_g * 100) if targets.protein_g else 0]|min|int }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 text-center">
+                        <div class="text-muted small">Carbs</div>
+                        <strong>{{ today_totals.carbs_g }}</strong> / {{ targets.carbs_g }}g
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-warning" style="width: {{ [100, (today_totals.carbs_g / targets.carbs_g * 100) if targets.carbs_g else 0]|min|int }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 text-center">
+                        <div class="text-muted small">Fat</div>
+                        <strong>{{ today_totals.fat_g }}</strong> / {{ targets.fat_g }}g
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-secondary" style="width: {{ [100, (today_totals.fat_g / targets.fat_g * 100) if targets.fat_g else 0]|min|int }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info mb-4">
+        <strong>Set your goals</strong> to see daily calorie and macro targets. <a href="{{ url_for('profile') }}">Add height, weight, age, and goal</a> in your profile.
+    </div>
+    {% endif %}
+
+    <!-- Water intake (always visible) -->
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Water</h5></div>
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="me-2"><strong>{{ today_water }}</strong> / {{ water_target }} ml today</span>
+                <form method="POST" action="{{ url_for('food_water') }}" class="d-inline">
+                    <input type="hidden" name="amount_ml" value="250">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">+250ml</button>
+                </form>
+                <form method="POST" action="{{ url_for('food_water') }}" class="d-inline">
+                    <input type="hidden" name="amount_ml" value="500">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">+500ml</button>
+                </form>
+                <form method="POST" action="{{ url_for('food_water') }}" class="d-inline">
+                    <input type="hidden" name="amount_ml" value="1000">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">+1L</button>
+                </form>
+                <form method="POST" action="{{ url_for('food_water') }}" class="d-inline" style="display:inline-flex!important;">
+                    <input type="number" name="amount_ml" value="250" min="50" max="2000" step="50" class="form-control form-control-sm" style="width:80px;">
+                    <button type="submit" class="btn btn-sm btn-primary ms-1">Add</button>
+                </form>
+            </div>
+            <div class="progress" style="height: 8px; max-width: 300px;">
+                <div class="progress-bar bg-primary" style="width: {{ [100, (today_water / water_target * 100)|int] if water_target else 0 }}%"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Calories Chart -->
     <div class="card mb-4">
         <div class="card-header"><h5 class="mb-0">Daily Calories (Last 14 Days)</h5></div>
@@ -13,54 +163,70 @@
         </div>
     </div>
 
-    <!-- Nutritionix helper -->
+    <!-- USDA Food Search -->
     <div class="card mb-4">
       <div class="card-body">
-        <h5 class="card-title">Estimate calories with Nutritionix</h5>
-        <form method="POST" action="{{ url_for('food_nutritionix') }}" class="row g-2 align-items-end">
+        <h5 class="card-title">Search food (USDA database)</h5>
+        <form method="POST" action="{{ url_for('food_nutrition') }}" class="row g-2 align-items-end">
           <div class="col-md-8">
-            <label for="nutrition_query" class="form-label">Describe your meal</label>
-            <input
-              type="text"
-              class="form-control"
-              id="nutrition_query"
-              name="nutrition_query"
-              placeholder="e.g. 2 slices of pepperoni pizza and a can of coke"
-              value="{{ nutrition_query or '' }}"
-            >
+            <label for="nutrition_query" class="form-label">Search food</label>
+            <input type="text" class="form-control" id="nutrition_query" name="nutrition_query"
+              placeholder="e.g. bread, chicken breast, apple" value="{{ nutrition_query or '' }}">
           </div>
           <div class="col-md-4">
-            <button type="submit" class="btn btn-outline-primary w-100">
-              Get calorie estimate
-            </button>
+            <button type="submit" class="btn btn-outline-primary w-100">Search</button>
           </div>
         </form>
-
         {% if estimated_calories is not none %}
-          <p class="mt-3 mb-0">
-            <strong>Estimated calories:</strong> {{ estimated_calories }} kcal
-          </p>
+        <div class="mt-3 p-2 bg-light rounded">
+          <strong>Estimated:</strong> {{ estimated_calories }} kcal
+          {% if estimated_protein or estimated_carbs or estimated_fat %}
+          | P: {{ estimated_protein or 0 }}g C: {{ estimated_carbs or 0 }}g F: {{ estimated_fat or 0 }}g
+          {% endif %}
+          <button type="button" class="btn btn-sm btn-success ms-2" onclick="fillFromSearch({{ estimated_calories }}, {{ estimated_protein or 0 }}, {{ estimated_carbs or 0 }}, {{ estimated_fat or 0 }})">
+            Use for next log
+          </button>
+        </div>
         {% endif %}
         {% if nutrition_error %}
-          <p class="mt-3 mb-0 text-danger">
-            {{ nutrition_error }}
-          </p>
+        <p class="mt-3 mb-0 text-danger">{{ nutrition_error }}</p>
         {% endif %}
       </div>
     </div>
 
-    <form method="POST" class="mb-5">
+    <form method="POST" action="{{ url_for('food') }}" class="mb-5">
         <div class="mb-3">
             <label for="meal_type" class="form-label">Meal Type</label>
-            <input type="text" class="form-control" id="meal_type" name="meal_type" required>
+            <select class="form-select" id="meal_type" name="meal_type" required>
+                <option value="">Select meal...</option>
+                <option value="Breakfast">Breakfast</option>
+                <option value="Lunch">Lunch</option>
+                <option value="Dinner">Dinner</option>
+                <option value="Snack">Snack</option>
+                <option value="Other">Other</option>
+            </select>
         </div>
         <div class="mb-3">
             <label for="food_items" class="form-label">Food Items</label>
-            <textarea class="form-control" id="food_items" name="food_items" rows="2" required></textarea>
+            <textarea class="form-control" id="food_items" name="food_items" rows="2" placeholder="What did you eat?" required></textarea>
         </div>
-        <div class="mb-3">
-            <label for="calories" class="form-label">Calories</label>
-            <input type="number" class="form-control" id="calories" name="calories" required>
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <label for="calories" class="form-label">Calories</label>
+                <input type="number" class="form-control" id="calories" name="calories" min="0" required>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label for="protein_g" class="form-label">Protein (g)</label>
+                <input type="number" class="form-control" id="protein_g" name="protein_g" min="0" step="0.1" placeholder="optional">
+            </div>
+            <div class="col-md-3 mb-3">
+                <label for="carbs_g" class="form-label">Carbs (g)</label>
+                <input type="number" class="form-control" id="carbs_g" name="carbs_g" min="0" step="0.1" placeholder="optional">
+            </div>
+            <div class="col-md-3 mb-3">
+                <label for="fat_g" class="form-label">Fat (g)</label>
+                <input type="number" class="form-control" id="fat_g" name="fat_g" min="0" step="0.1" placeholder="optional">
+            </div>
         </div>
         <button type="submit" class="btn btn-primary">Log Meal</button>
     </form>
@@ -73,7 +239,7 @@
         <strong>{{ entry.date }}</strong><br>
         Meal: {{ entry.meal_type }}<br>
         Food: {{ entry.food_items }}<br>
-        Calories: {{ entry.calories }}<br>
+        Calories: {{ entry.calories }}{% if entry.protein_g or entry.carbs_g or entry.fat_g %} | P: {{ entry.protein_g or 0 }}g C: {{ entry.carbs_g or 0 }}g F: {{ entry.fat_g or 0 }}g{% endif %}<br>
 
         <div class="mt-2">
           <a
@@ -105,14 +271,23 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-fetch('/api/charts').then(r=>r.json()).then(d=>{
+fetch('/api/charts?days=14').then(r=>r.json()).then(d=>{
   if(document.getElementById('foodChart')&&d.labels){
+    const opts = { responsive: true, plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6c757d' } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6c757d' } } } };
     new Chart(document.getElementById('foodChart'),{
       type:'bar',
-      data:{labels:d.labels,datasets:[{label:'Calories',data:d.food,backgroundColor:'rgba(25,135,84,0.6)',borderColor:'#198754',borderWidth:1}]},
-      options:{responsive:true}
+      data:{labels:d.labels,datasets:[{label:'Calories',data:d.food,backgroundColor:'rgba(34,197,94,0.7)',borderColor:'#22c55e',borderWidth:1,borderRadius:6}]},
+      options: opts
     });
   }
 }).catch(()=>{});
+function fillFromSearch(cal, p, c, f) {
+  document.getElementById('calories').value = cal || '';
+  document.getElementById('protein_g').value = p || '';
+  document.getElementById('carbs_g').value = c || '';
+  document.getElementById('fat_g').value = f || '';
+}
 </script>
 {% endblock %}

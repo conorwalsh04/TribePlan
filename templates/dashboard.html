@@ -2,80 +2,71 @@
 {% block title %}Dashboard | TribePlan{% endblock %}
 {% block content %}
 <div class="container mt-4">
-  <h2 class="mb-4">Your Dashboard</h2>
-  
-  {% if profile %}
-  <div class="alert alert-info mb-4">
-    <strong>Welcome, {{ profile.name or 'User' }}!</strong>
-    {% if not profile.name or not profile.height or not profile.weight %}
-    <p class="mb-0 mt-2">
-      Complete your profile to enable buddy matching: 
-      <a href="{{ url_for('profile') }}" class="alert-link">Update Profile</a>
-    </p>
+  <!-- Gradient welcome banner -->
+  <div class="tribeplan-hero">
+    <h1 class="h3 mb-1" id="dashboard-greeting">Good day, {{ profile.name.split()[0] if profile and profile.name else 'User' }}!</h1>
+    <p class="lead mb-0">Here’s your wellness overview.</p>
+    {% if profile and (not profile.name or not profile.height or not profile.weight) %}
+    <p class="mb-0 mt-2 opacity-75 small"><a href="{{ url_for('profile') }}" class="text-white text-decoration-underline">Complete your profile</a> to enable buddy matching.</p>
     {% endif %}
   </div>
-  {% endif %}
 
   <!-- Motivational Quote & Weather Row -->
   <div class="row g-4 mb-4">
     <div class="col-md-8">
-      <div class="card bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-        <div class="card-body text-white">
-          <h5 class="card-title">Daily Motivation</h5>
+      <div class="card tribeplan-card h-100">
+        <div class="card-body text-dark">
+          <h5 class="card-title text-dark">Daily Motivation</h5>
           <blockquote class="mb-0" id="daily-quote">
-            <p class="mb-2 fst-italic" id="quote-text">Loading...</p>
-            <footer class="blockquote-footer text-white-50" id="quote-author"></footer>
+            <p class="mb-2 fst-italic text-dark" id="quote-text">{% if quote %}"{{ quote.quote }}"{% else %}Loading...{% endif %}</p>
+            <footer class="blockquote-footer text-body-secondary" id="quote-author">{% if quote %}— {{ quote.author }}{% endif %}</footer>
           </blockquote>
         </div>
       </div>
     </div>
-    
     <div class="col-md-4">
-      <div class="card bg-info text-white">
+      <div class="card tribeplan-card h-100 border-0" style="background: linear-gradient(135deg, #0ea5e9, #06b6d4); color: #fff;">
         <div class="card-body">
-          <h5 class="card-title">Weather</h5>
+          <h5 class="card-title text-white">Weather</h5>
           <div id="weather-widget">
-            <p id="weather-temp" class="display-6 mb-0">--</p>
-            <p id="weather-desc" class="mb-0">Loading...</p>
-            <small id="weather-city"></small>
+            <p id="weather-temp" class="display-6 mb-0">{% if weather %}{{ weather.temp }}°C{% else %}--{% endif %}</p>
+            <p id="weather-desc" class="mb-0">{% if weather %}{{ weather.description }}{% else %}—{% endif %}</p>
+            <small class="opacity-90" id="weather-city">{% if weather %}{{ weather.city }}{% endif %}</small>
           </div>
         </div>
       </div>
     </div>
   </div>
-  
-  <!-- Activity Suggestion -->
-  <div class="alert alert-success mb-4" id="activity-suggestion" style="display: none;">
-    <strong>Today's Activity Suggestion:</strong> <span id="suggestion-text"></span>
+
+  <div class="alert alert-success mb-4" id="activity-suggestion" {% if not suggestion %}style="display: none;"{% endif %}>
+    <strong>Today's Activity Suggestion:</strong> <span id="suggestion-text">{% if suggestion %}{{ suggestion }}{% endif %}</span>
   </div>
 
   <!-- Stats Row -->
   <div class="row g-4 mb-4">
     <div class="col-md-4">
-      <div class="card text-center">
+      <div class="card tribeplan-card text-center h-100">
         <div class="card-body">
           <h5 class="card-title">Mood logs</h5>
-          <p class="display-6">{{ mood_count }}</p>
+          <p class="display-6 mb-2">{{ mood_count }}</p>
           <a href="{{ url_for('mood') }}" class="btn btn-sm btn-outline-primary">View</a>
         </div>
       </div>
     </div>
-
     <div class="col-md-4">
-      <div class="card text-center">
+      <div class="card tribeplan-card text-center h-100">
         <div class="card-body">
           <h5 class="card-title">Food logs</h5>
-          <p class="display-6">{{ food_count }}</p>
+          <p class="display-6 mb-2">{{ food_count }}</p>
           <a href="{{ url_for('food') }}" class="btn btn-sm btn-outline-primary">View</a>
         </div>
       </div>
     </div>
-
     <div class="col-md-4">
-      <div class="card text-center">
+      <div class="card tribeplan-card text-center h-100">
         <div class="card-body">
           <h5 class="card-title">Fitness logs</h5>
-          <p class="display-6">{{ fitness_count }}</p>
+          <p class="display-6 mb-2">{{ fitness_count }}</p>
           <a href="{{ url_for('fitness') }}" class="btn btn-sm btn-outline-primary">View</a>
         </div>
       </div>
@@ -83,9 +74,17 @@
   </div>
 
   <!-- Charts Row -->
+  <p id="chartEmptyMsg" class="text-muted small mb-2" {% if not chart_data.empty_message %}style="display:none;"{% endif %}>{% if chart_data.empty_message %}{{ chart_data.empty_message }}{% endif %}</p>
+  <div class="d-flex justify-content-end mb-2">
+    <div class="btn-group btn-group-sm" role="group">
+      <a href="{{ url_for('dashboard', days=7) }}" class="btn btn-outline-secondary{% if chart_days == 7 %} active{% endif %}">7 days</a>
+      <a href="{{ url_for('dashboard', days=14) }}" class="btn btn-outline-secondary{% if chart_days == 14 %} active{% endif %}">14 days</a>
+      <a href="{{ url_for('dashboard', days=30) }}" class="btn btn-outline-secondary{% if chart_days == 30 %} active{% endif %}">30 days</a>
+    </div>
+  </div>
   <div class="row g-4 mb-4">
     <div class="col-md-4">
-      <div class="card h-100">
+      <div class="card tribeplan-card h-100">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Mood Trend</h5>
           <a href="{{ url_for('mood') }}" class="btn btn-sm btn-outline-primary">Log Mood</a>
@@ -96,7 +95,7 @@
       </div>
     </div>
     <div class="col-md-4">
-      <div class="card h-100">
+      <div class="card tribeplan-card h-100">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Calories</h5>
           <a href="{{ url_for('food') }}" class="btn btn-sm btn-outline-primary">Log Meal</a>
@@ -107,7 +106,7 @@
       </div>
     </div>
     <div class="col-md-4">
-      <div class="card h-100">
+      <div class="card tribeplan-card h-100">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Workout Minutes</h5>
           <a href="{{ url_for('fitness') }}" class="btn btn-sm btn-outline-primary">Log Workout</a>
@@ -118,129 +117,122 @@
       </div>
     </div>
   </div>
-  
+
   {% if profile %}
-  <div class="card">
+  <div class="card tribeplan-card">
     <div class="card-header">
       <h5 class="mb-0">Profile Summary</h5>
     </div>
     <div class="card-body">
       <div class="row">
         <div class="col-md-6">
-          <p><strong>Name:</strong> {{ profile.name or 'Not set' }}</p>
-          <p><strong>Email:</strong> {{ profile.email or 'Not set' }}</p>
-          <p><strong>Height:</strong> {{ profile.height or 'Not set' }}{% if profile.height %} cm{% endif %}</p>
-          <p><strong>Weight:</strong> {{ profile.weight or 'Not set' }}{% if profile.weight %} kg{% endif %}</p>
-          <p><strong>Location:</strong> {{ profile.city or 'Not set' }}{% if profile.country %}, {{ profile.country }}{% endif %}</p>
+          <p class="mb-1"><strong>Name:</strong> {{ profile.name or 'Not set' }}</p>
+          <p class="mb-1"><strong>Email:</strong> {{ profile.email or 'Not set' }}</p>
+          <p class="mb-1"><strong>Height:</strong> {{ profile.height or 'Not set' }}{% if profile.height %} cm{% endif %}</p>
+          <p class="mb-1"><strong>Weight:</strong> {{ profile.weight or 'Not set' }}{% if profile.weight %} kg{% endif %}</p>
+          <p class="mb-1"><strong>Location:</strong> {{ profile.city or 'Not set' }}{% if profile.country %}, {{ profile.country }}{% endif %}</p>
         </div>
         <div class="col-md-6">
           <p><strong>Goals:</strong></p>
-          <p>{{ profile.goals or 'No goals set yet' }}</p>
+          <p class="text-muted mb-0">{{ profile.goals or 'No goals set yet' }}</p>
         </div>
       </div>
-      <a href="{{ url_for('profile') }}" class="btn btn-primary">Edit Profile</a>
+      <a href="{{ url_for('profile') }}" class="btn btn-primary mt-3">Edit Profile</a>
     </div>
   </div>
   {% endif %}
 </div>
+<script>
+(function() {
+  var hour = new Date().getHours();
+  var greeting = 'Good day';
+  if (hour < 12) greeting = 'Good morning';
+  else if (hour < 17) greeting = 'Good afternoon';
+  else greeting = 'Good evening';
+  var el = document.getElementById('dashboard-greeting');
+  if (el) el.textContent = greeting + ', {{ profile.name.split()[0] if profile and profile.name else "User" }}!';
+})();
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-// Load dashboard widgets and charts
 document.addEventListener('DOMContentLoaded', function() {
-  // Load chart data and render
-  fetch('/api/charts')
-    .then(r => r.json())
-    .then(data => {
-      const opts = { responsive: true, maintainAspectRatio: true };
-      const colors = { primary: '#0d6efd', success: '#198754', warning: '#ffc107', danger: '#dc3545' };
+  var chartData = {{ chart_data | tojson }};
+  var labels = chartData.labels || [];
+  var moodData = chartData.mood || [];
+  var foodData = chartData.food || [];
+  var fitnessData = chartData.fitness || [];
 
-      if (document.getElementById('moodChart')) {
-        new Chart(document.getElementById('moodChart'), {
-          type: 'line',
-          data: {
-            labels: data.labels,
-            datasets: [{
-              label: 'Mood (1-5)',
-              data: data.mood,
-              borderColor: colors.primary,
-              backgroundColor: 'rgba(13, 110, 253, 0.1)',
-              fill: true,
-              tension: 0.3
-            }]
-          },
-          options: { ...opts, scales: { y: { min: 1, max: 5 } } }
-        });
-      }
-      if (document.getElementById('foodChart')) {
-        new Chart(document.getElementById('foodChart'), {
-          type: 'bar',
-          data: {
-            labels: data.labels,
-            datasets: [{
-              label: 'Calories',
-              data: data.food,
-              backgroundColor: 'rgba(25, 135, 84, 0.6)',
-              borderColor: colors.success,
-              borderWidth: 1
-            }]
-          },
-          options: opts
-        });
-      }
-      if (document.getElementById('fitnessChart')) {
-        new Chart(document.getElementById('fitnessChart'), {
-          type: 'bar',
-          data: {
-            labels: data.labels,
-            datasets: [{
-              label: 'Minutes',
-              data: data.fitness,
-              backgroundColor: 'rgba(255, 193, 7, 0.6)',
-              borderColor: colors.warning,
-              borderWidth: 1
-            }]
-          },
-          options: opts
-        });
-      }
-    })
-    .catch(() => {});
+  var chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6c757d', font: { size: 11 } } },
+      y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6c757d', font: { size: 11 } } }
+    }
+  };
 
-  // Load quote
-  fetch('/api/quote')
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('quote-text').textContent = '"' + data.quote + '"';
-      document.getElementById('quote-author').textContent = '— ' + data.author;
-    })
-    .catch(() => {
-      document.getElementById('quote-text').textContent = 'Stay motivated!';
-    });
-  
-  // Load weather
-  const city = '{{ profile.city or "Dublin" }}';
-  const country = '{{ profile.country or "IE" }}';
-  fetch(`/api/weather?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data.weather) {
-        document.getElementById('weather-temp').textContent = data.weather.temp + '°C';
-        document.getElementById('weather-desc').textContent = data.weather.description;
-        document.getElementById('weather-city').textContent = data.weather.city;
-      } else {
-        document.getElementById('weather-temp').textContent = '--';
-        document.getElementById('weather-desc').textContent = 'Set location in profile';
-      }
-      
-      if (data.suggestion) {
-        document.getElementById('suggestion-text').textContent = data.suggestion;
-        document.getElementById('activity-suggestion').style.display = 'block';
-      }
-    })
-    .catch(() => {
-      document.getElementById('weather-desc').textContent = 'Weather unavailable';
-    });
+  if (typeof Chart !== 'undefined') {
+    if (document.getElementById('moodChart')) {
+      new Chart(document.getElementById('moodChart'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Mood (1-5)',
+            data: moodData,
+            spanGaps: true,
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.12)',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2,
+            pointBackgroundColor: '#6366f1',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 4
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } },
+          scales: { x: chartDefaults.scales.x, y: { min: 1, max: 5, grid: chartDefaults.scales.y.grid, ticks: chartDefaults.scales.y.ticks } } }
+      });
+    }
+    if (document.getElementById('foodChart')) {
+      new Chart(document.getElementById('foodChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Calories',
+            data: foodData,
+            backgroundColor: 'rgba(34, 197, 94, 0.7)',
+            borderColor: '#22c55e',
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: chartDefaults
+      });
+    }
+    if (document.getElementById('fitnessChart')) {
+      new Chart(document.getElementById('fitnessChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Minutes',
+            data: fitnessData,
+            backgroundColor: 'rgba(249, 115, 22, 0.7)',
+            borderColor: '#f97316',
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: chartDefaults
+      });
+    }
+  }
 });
 </script>
 {% endblock %}

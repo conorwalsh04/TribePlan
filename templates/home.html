@@ -5,7 +5,9 @@
 {% block content %}
 <div class="overlay-content text-center text-dark">
     {% if not is_logged_in %}
-    <img src="{{ url_for('static', filename='img/logo-light.png') }}" alt="TribePlan" height="120" class="mb-4">
+    <div class="tribeplan-logo-wrap mb-4">
+      <img src="{{ url_for('static', filename='img/logo-tribeplan.png') }}" alt="TribePlan" height="100" class="tribeplan-logo-img">
+    </div>
     {% endif %}
     
     <h1 class="display-4 fw-bold mb-3">

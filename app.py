@@ -1,14 +1,15 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import json
 import os
 from dotenv import load_dotenv
 
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from urllib.parse import quote_plus
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 import requests
 
@@ -37,11 +38,23 @@ STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
 STRAVA_REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI")
 
-NUTRITIONIX_APP_ID = os.getenv("NUTRITIONIX_APP_ID")
-NUTRITIONIX_API_KEY = os.getenv("NUTRITIONIX_API_KEY")
+# Nutrition API - USDA FoodData Central (free at fdc.nal.usda.gov/api-key-signup)
+USDA_FDC_API_KEY = os.getenv("USDA_FDC_API_KEY")
 
 # OpenWeatherMap API for weather-based activity suggestions
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+
+# Google Maps JavaScript API (for buddies map)
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+
+# Activity level multipliers for TDEE (BMR * multiplier)
+ACTIVITY_MULTIPLIERS = {
+    "sedentary": 1.2,    # little/no exercise
+    "light": 1.375,      # 1-3 days/week
+    "moderate": 1.55,    # 3-5 days/week
+    "active": 1.725,     # 6-7 days/week
+    "very_active": 1.9,  # heavy exercise
+}
 
 # Print API config status on startup (for debugging)
 print("=" * 50)
@@ -49,13 +62,68 @@ print("API Configuration Status:")
 print(f"  STRAVA_CLIENT_ID: {'SET' if STRAVA_CLIENT_ID else 'MISSING'}")
 print(f"  STRAVA_CLIENT_SECRET: {'SET' if STRAVA_CLIENT_SECRET else 'MISSING'}")
 print(f"  OPENWEATHER_API_KEY: {'SET' if OPENWEATHER_API_KEY else 'MISSING'}")
-print(f"  NUTRITIONIX_APP_ID: {'SET' if NUTRITIONIX_APP_ID else 'MISSING'}")
+print(f"  USDA_FDC_API_KEY: {'SET' if USDA_FDC_API_KEY else 'MISSING'} (nutrition)")
+print(f"  GOOGLE_MAPS_API_KEY: {'SET' if GOOGLE_MAPS_API_KEY else 'MISSING'} (buddies map)")
 print("=" * 50)
 
 
 def col(user_id: str, name: str):
     """users/{uid}/{name} collection ref"""
     return db.collection("users").document(user_id).collection(name)
+
+
+def _strava_token_ref(user_id: str):
+    """Strava token doc ref: users/{uid}/integrations/strava (standardised path)."""
+    return db.collection("users").document(user_id).collection("integrations").document("strava")
+
+
+def _strava_token_ref_legacy(user_id: str):
+    """Legacy path: users/{uid}/strava_tokens/token."""
+    return db.collection("users").document(user_id).collection("strava_tokens").document("token")
+
+
+# ===================== VALIDATION HELPERS =====================
+
+def validate_mood(val) -> tuple:
+    """Validate mood 1–5. Returns (value, error_msg)."""
+    try:
+        v = int(val)
+        if 1 <= v <= 5:
+            return v, None
+        return None, "Mood must be between 1 and 5."
+    except (TypeError, ValueError):
+        return None, "Mood must be a number between 1 and 5."
+
+
+def validate_calories(val) -> tuple:
+    """Validate calories >= 0. Returns (value, error_msg)."""
+    try:
+        v = int(val)
+        if v >= 0:
+            return v, None
+        return None, "Calories must be 0 or greater."
+    except (TypeError, ValueError):
+        return None, "Calories must be a whole number."
+
+
+def validate_duration(val) -> tuple:
+    """Validate fitness duration >= 0. Returns (value, error_msg)."""
+    try:
+        v = int(val)
+        if v >= 0:
+            return v, None
+        return None, "Duration must be 0 or greater."
+    except (TypeError, ValueError):
+        return None, "Duration must be a whole number."
+
+
+def validate_required(val, field_name: str) -> tuple:
+    """Validate required string field. Returns (value, error_msg)."""
+    s = (val or "").strip()
+    if s:
+        return s, None
+    return None, f"{field_name} is required."
+
 
 # Jinja filter (now safe, app exists)
 @app.template_filter()
@@ -175,26 +243,38 @@ def is_strava_connected():
     uid = get_current_user_id()
     if not uid:
         return False
-    doc = db.collection("users").document(uid).collection("strava_tokens").document("token").get()
-    return doc.exists
+    doc = _strava_token_ref(uid).get()
+    if doc.exists:
+        return True
+    return _strava_token_ref_legacy(uid).get().exists
+
+
+def get_strava_data_for_user(user_id: str):
+    """Get Strava token doc (checks integrations/strava first, then legacy path). Migrates legacy to new path."""
+    snap = _strava_token_ref(user_id).get()
+    if snap.exists:
+        return snap.to_dict()
+    snap = _strava_token_ref_legacy(user_id).get()
+    if snap.exists:
+        data = snap.to_dict()
+        # Migrate to standardised path
+        _strava_token_ref(user_id).set(data)
+        _strava_token_ref_legacy(user_id).delete()
+        return data
+    return None
 
 
 def get_strava_access_token_for_user(user_id: str):
     """
     Return a valid Strava access token for the given user.
     Refreshes the token if it is expired, updating Firestore.
+    Uses standardised path: users/{uid}/integrations/strava
     """
-    token_ref = (
-        db.collection("users")
-          .document(user_id)
-          .collection("strava_tokens")
-          .document("token")
-    )
-    snap = token_ref.get()
-    if not snap.exists:
+    data = get_strava_data_for_user(user_id)
+    if not data:
         return None
 
-    data = snap.to_dict() or {}
+    token_ref = _strava_token_ref(user_id)
     access_token = data.get("access_token")
     refresh_token = data.get("refresh_token")
     expires_at = data.get("expires_at")  # epoch seconds from Strava
@@ -226,12 +306,13 @@ def get_strava_access_token_for_user(user_id: str):
     new_refresh = new_data.get("refresh_token", refresh_token)
     new_expires = new_data.get("expires_at", expires_at)
 
+    athlete = data.get("athlete") or data.get("strava_athlete")
     token_ref.set(
         {
             "access_token": new_access,
             "refresh_token": new_refresh,
             "expires_at": new_expires,
-            "athlete": data.get("athlete"),
+            "athlete": athlete,
         },
         merge=True,
     )
@@ -299,8 +380,8 @@ def strava_callback():
     if not user_id:
         return "Login required before connecting Strava", 401
 
-    # Save tokens + athlete profile
-    db.collection("users").document(user_id).collection("strava_tokens").document("token").set({
+    # Save to standardised path: users/{uid}/integrations/strava
+    _strava_token_ref(user_id).set({
         "access_token": access_token,
         "refresh_token": token_data.get("refresh_token"),
         "expires_at": token_data.get("expires_at"),
@@ -315,6 +396,53 @@ def strava_callback():
     return render_template("strava_connected.html", athlete=athlete)
 
 
+@app.route("/integrations")
+def integrations():
+    """Integrations settings page: Strava status, athlete info, sync/disconnect."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    strava_connected = is_strava_connected()
+    strava_data = None
+    if strava_connected:
+        strava_data = get_strava_data_for_user(uid)
+        if strava_data:
+            # Merge with user-level strava_athlete if stored there
+            user_doc = db.collection("users").document(uid).get()
+            if user_doc.exists:
+                ud = user_doc.to_dict() or {}
+                if ud.get("strava_athlete") and not strava_data.get("athlete"):
+                    strava_data = {**strava_data, "athlete": ud["strava_athlete"]}
+
+    athlete = (strava_data or {}).get("athlete") or {}
+    last_sync = strava_data.get("last_sync_at") if strava_data else None
+    if hasattr(last_sync, "strftime"):
+        last_sync_str = last_sync.strftime("%Y-%m-%d %H:%M")
+    elif last_sync:
+        last_sync_str = str(last_sync)[:16]
+    else:
+        last_sync_str = None
+
+    return render_template(
+        "integrations.html",
+        strava_connected=strava_connected,
+        athlete=athlete,
+        last_sync_str=last_sync_str,
+    )
+
+
+@app.route("/integrations/strava/disconnect", methods=["POST"])
+def strava_disconnect():
+    """Disconnect Strava: delete token, keep imported workouts."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    _strava_token_ref(uid).delete()
+    _strava_token_ref_legacy(uid).delete()
+    flash("Strava has been disconnected. Your imported workouts are kept.", "success")
+    return redirect(url_for("integrations"))
 
 
 @app.route('/')
@@ -422,8 +550,11 @@ def mood():
     logs = []
 
     if request.method == "POST":
-        mood_val = int(request.form["mood"])
-        journal = request.form.get("journal", "")
+        mood_val, err = validate_mood(request.form.get("mood"))
+        if err:
+            flash(err, "error")
+            return redirect(url_for("mood"))
+        journal = request.form.get("journal", "").strip()
         now = datetime.now()
 
         log_entry = {
@@ -433,6 +564,7 @@ def mood():
         }
 
         col(uid, "mood_logs").add(log_entry)
+        flash("Mood logged successfully.", "success")
         return redirect(url_for("mood"))
 
     docs = col(uid, "mood_logs").order_by("date", direction=firestore.Query.DESCENDING).stream()
@@ -460,10 +592,9 @@ def mood_delete(log_id):
               .document(log_id)
               .delete()
         )
-        print("Mood delete OK. Doc id:", log_id)
+        flash("Mood entry deleted.", "success")
     except Exception as e:
-        print("Mood delete failed:", e)
-
+        flash("Delete failed.", "error")
     return redirect(url_for('mood'))
 
 
@@ -481,18 +612,16 @@ def mood_edit(log_id):
     )
 
     if request.method == 'POST':
-        mood_val = int(request.form['mood'])
-        journal = request.form.get('journal', '')
-
+        mood_val, err = validate_mood(request.form.get('mood'))
+        if err:
+            flash(err, "error")
+            return redirect(url_for('mood_edit', log_id=log_id))
+        journal = request.form.get('journal', '').strip()
         try:
-            ref.update({
-                "mood": mood_val,
-                "journal": journal
-            })
-            print("Mood update OK. Doc id:", log_id)
+            ref.update({"mood": mood_val, "journal": journal})
+            flash("Mood entry updated.", "success")
         except Exception as e:
-            print("Mood update failed:", e)
-
+            flash("Update failed: " + str(e), "error")
         return redirect(url_for('mood'))
 
     snap = ref.get()
@@ -507,6 +636,64 @@ def mood_edit(log_id):
     return render_template("mood_edit.html", log=data)
 
 
+def _food_page_data(uid):
+    """Load food logs, targets, and today's totals for food page."""
+    logs = []
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_cal, today_p, today_c, today_f = 0, 0, 0, 0
+
+    docs = col(uid, "food_logs").order_by("date", direction=firestore.Query.DESCENDING).stream()
+    for d in docs:
+        entry = d.to_dict()
+        entry["id"] = d.id
+        dt = entry.get("date")
+        if isinstance(dt, datetime):
+            entry["date"] = dt.strftime("%Y-%m-%d %H:%M:%S")
+            ds = dt.strftime("%Y-%m-%d")
+        else:
+            entry["date"] = str(dt)[:19] if dt else ""
+            ds = str(dt)[:10] if dt else ""
+        logs.append(entry)
+        if ds == today_str:
+            try:
+                today_cal += int(entry.get("calories", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+            try:
+                today_p += float(entry.get("protein_g", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+            try:
+                today_c += float(entry.get("carbs_g", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+            try:
+                today_f += float(entry.get("fat_g", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+
+    targets = None
+    today_water = 0
+    water_target = 2000
+    user_doc = db.collection("users").document(uid).get()
+    if user_doc.exists:
+        profile = user_doc.to_dict()
+        targets = calculate_nutrition_goals(profile)
+        water_target = profile.get("water_target_ml") or 2000
+
+    # Sum today's water intake
+    water_docs = col(uid, "water_logs").where(filter=FieldFilter("date", "==", today_str)).stream()
+    for wd in water_docs:
+        today_water += int(wd.to_dict().get("amount_ml", 0) or 0)
+
+    return logs, targets, {
+        "calories": today_cal,
+        "protein_g": round(today_p, 1),
+        "carbs_g": round(today_c, 1),
+        "fat_g": round(today_f, 1),
+    }, today_water, water_target
+
+
 # FOOD CRUD
 @app.route('/food', methods=['GET', 'POST'])
 def food():
@@ -514,68 +701,225 @@ def food():
     if redirect_resp:
         return redirect_resp
 
-    logs = []
-
     if request.method == 'POST':
-        meal_type = request.form['meal_type']
-        food_items = request.form['food_items']
-        calories = request.form['calories']
+        meal_type, err = validate_required(request.form.get('meal_type'), "Meal type")
+        if err:
+            flash(err, "error")
+            return redirect(url_for('food'))
+        food_items, err = validate_required(request.form.get('food_items'), "Food items")
+        if err:
+            flash(err, "error")
+            return redirect(url_for('food'))
+        calories, err = validate_calories(request.form.get('calories', '0'))
+        if err:
+            flash(err, "error")
+            return redirect(url_for('food'))
+        protein = request.form.get('protein_g', '')
+        carbs = request.form.get('carbs_g', '')
+        fat = request.form.get('fat_g', '')
         now = datetime.now()
 
         log_entry = {
             "date": now,
             "meal_type": meal_type,
             "food_items": food_items,
-            "calories": calories
+            "calories": str(calories),
         }
+        if protein:
+            try:
+                log_entry["protein_g"] = max(0, float(protein))
+            except (ValueError, TypeError):
+                pass
+        if carbs:
+            try:
+                log_entry["carbs_g"] = max(0, float(carbs))
+            except (ValueError, TypeError):
+                pass
+        if fat:
+            try:
+                log_entry["fat_g"] = max(0, float(fat))
+            except (ValueError, TypeError):
+                pass
 
         col(uid, "food_logs").add(log_entry)
+        flash("Meal logged successfully.", "success")
         return redirect(url_for('food'))
 
-    docs = col(uid, "food_logs").order_by("date", direction=firestore.Query.DESCENDING).stream()
-    for d in docs:
-        entry = d.to_dict()
-        entry["id"] = d.id
-        if isinstance(entry.get("date"), datetime):
-            entry["date"] = entry["date"].strftime("%Y-%m-%d %H:%M:%S")
-        logs.append(entry)
+    logs, targets, today_totals, today_water, water_target = _food_page_data(uid)
+    return render_template(
+        "food.html",
+        logs=logs,
+        targets=targets,
+        today_totals=today_totals,
+        today_water=today_water,
+        water_target=water_target,
+        estimated_calories=None,
+        estimated_protein=None,
+        estimated_carbs=None,
+        estimated_fat=None,
+        nutrition_error=None,
+        nutrition_query="",
+    )
 
-    return render_template("food.html", logs=logs, estimated_calories=None, nutrition_error=None)
+
+# USDA nutrient IDs
+_USDA_CAL = 1008
+_USDA_PROTEIN = 1003
+_USDA_CARBS = 1005
+_USDA_FAT = 1004
 
 
-def estimate_calories_with_nutritionix(query: str):
+def _get_nutrient(food_nutrients, nutrient_id):
+    for n in food_nutrients or []:
+        if n.get("nutrientId") == nutrient_id:
+            try:
+                return float(n.get("value", 0) or 0)
+            except (TypeError, ValueError):
+                return 0
+    return 0
+
+
+def search_usda_food(query: str):
     """
-    Call Nutritionix natural language endpoint to estimate total calories
-    for a described meal.
+    Search USDA FoodData Central. Returns (calories, protein_g, carbs_g, fat_g, error_msg).
+    Get free API key at https://fdc.nal.usda.gov/api-key-signup.html
     """
-    if not NUTRITIONIX_APP_ID or not NUTRITIONIX_API_KEY:
-        return None, "Nutritionix API keys are not configured."
+    if not USDA_FDC_API_KEY:
+        return None, None, None, None, "Add USDA_FDC_API_KEY to .env (free at fdc.nal.usda.gov/api-key-signup)"
 
-    url = "https://trackapi.nutritionix.com/v2/natural/nutrients"
-    headers = {
-        "x-app-id": NUTRITIONIX_APP_ID,
-        "x-app-key": NUTRITIONIX_API_KEY,
-        "Content-Type": "application/json",
-    }
+    url = "https://api.nal.usda.gov/fdc/v1/foods/search"
+    params = {"api_key": USDA_FDC_API_KEY}
+    payload = {"query": query, "pageSize": 5}
     try:
-        resp = requests.post(url, headers=headers, json={"query": query}, timeout=10)
+        resp = requests.post(url, params=params, json=payload, timeout=10)
     except Exception as e:
-        return None, f"Nutritionix request failed: {e}"
-
+        return None, None, None, None, str(e)
     if resp.status_code != 200:
-        return None, f"Nutritionix error: {resp.text}"
+        return None, None, None, None, resp.text or "API error"
+    try:
+        data = resp.json()
+        foods = data.get("foods", [])
+        if not foods:
+            return None, None, None, None, "No results found. Try different keywords (e.g. 'bread', 'chicken breast')."
+        food = foods[0]
+        ntr = food.get("foodNutrients", [])
+        cal = _get_nutrient(ntr, _USDA_CAL)
+        p = _get_nutrient(ntr, _USDA_PROTEIN)
+        c = _get_nutrient(ntr, _USDA_CARBS)
+        f = _get_nutrient(ntr, _USDA_FAT)
+        if cal <= 0 and (p or c or f):
+            cal = (p * 4) + (c * 4) + (f * 9)
+        return int(cal), round(p, 1), round(c, 1), round(f, 1), None
+    except Exception as e:
+        return None, None, None, None, str(e)
 
-    data = resp.json()
-    foods = data.get("foods", [])
-    total_calories = sum(f.get("nf_calories", 0) for f in foods)
-    return int(total_calories), None
 
-
-@app.route("/food/nutritionix", methods=["POST"])
-def food_nutritionix():
+def calculate_nutrition_goals(profile: dict):
     """
-    Use Nutritionix to estimate calories for a free-text meal description,
-    then render the food page with the suggestion.
+    Calculate daily calorie and macro targets based on profile.
+    Returns dict with daily_calories, protein_g, carbs_g, fat_g, goal_summary.
+    """
+    h = profile.get("height") or 0
+    w = profile.get("weight") or 0
+    age = profile.get("age") or 30
+    gender = (profile.get("gender") or "male").lower()
+    target_weight = profile.get("target_weight")
+    goal_type = (profile.get("goal_type") or "maintain").lower()
+    target_weeks = profile.get("target_weeks") or 12
+    activity = profile.get("activity_level") or "moderate"
+
+    if not h or not w or w <= 0:
+        return None
+
+    try:
+        h, w, age = float(h), float(w), int(age)
+    except (TypeError, ValueError):
+        return None
+
+    # BMR (Mifflin-St Jeor)
+    if gender == "female":
+        bmr = 10 * w + 6.25 * h - 5 * age - 161
+    else:
+        bmr = 10 * w + 6.25 * h - 5 * age + 5
+
+    mult = ACTIVITY_MULTIPLIERS.get(activity, 1.55)
+    tdee = bmr * mult
+    daily_cal = tdee
+
+    if goal_type == "lose" and target_weight and target_weeks > 0:
+        try:
+            tw = float(target_weight)
+            kg_to_lose = w - tw
+            if kg_to_lose > 0:
+                deficit_per_day = (kg_to_lose * 7700) / (target_weeks * 7)
+                daily_cal = max(1200, tdee - deficit_per_day)
+        except (TypeError, ValueError):
+            pass
+    elif goal_type == "gain" and target_weight and target_weeks > 0:
+        try:
+            tw = float(target_weight)
+            kg_to_gain = tw - w
+            if kg_to_gain > 0:
+                surplus_per_day = (kg_to_gain * 7700) / (target_weeks * 7)
+                daily_cal = min(4000, tdee + min(surplus_per_day, 500))
+        except (TypeError, ValueError):
+            pass
+
+    # Macros: protein 1.6g/kg (higher for muscle), rest split 30% fat / 70% carbs
+    protein_g = round(w * 1.6)
+    protein_cal = protein_g * 4
+    remaining = max(0, daily_cal - protein_cal)
+    fat_cal = remaining * 0.30
+    carb_cal = remaining * 0.70
+    fat_g = round(fat_cal / 9)
+    carbs_g = round(carb_cal / 4)
+
+    summary = f"TDEE ~{int(tdee)} kcal"
+    weekly_rate_kg = 0.0
+    projected_date = None
+    if goal_type == "lose" and target_weight and target_weeks > 0:
+        try:
+            tw = float(target_weight)
+            kg_to_lose = w - tw
+            if kg_to_lose > 0:
+                weekly_rate_kg = -(kg_to_lose / target_weeks)
+                summary += f" → Deficit for ~{target_weeks} weeks to {target_weight} kg"
+                projected_date = datetime.now() + timedelta(weeks=target_weeks)
+        except (TypeError, ValueError):
+            pass
+    elif goal_type == "gain" and target_weight and target_weeks > 0:
+        try:
+            tw = float(target_weight)
+            kg_to_gain = tw - w
+            if kg_to_gain > 0:
+                weekly_rate_kg = kg_to_gain / target_weeks
+                summary += f" → Surplus for ~{target_weeks} weeks to {target_weight} kg"
+                projected_date = datetime.now() + timedelta(weeks=target_weeks)
+        except (TypeError, ValueError):
+            pass
+
+    return {
+        "daily_calories": int(daily_cal),
+        "protein_g": protein_g,
+        "carbs_g": carbs_g,
+        "fat_g": fat_g,
+        "tdee": int(tdee),
+        "bmr": int(bmr),
+        "goal_summary": summary,
+        "weekly_rate_kg": round(weekly_rate_kg, 2) if weekly_rate_kg else 0,
+        "projected_date": projected_date,
+        "current_weight": w,
+        "target_weight": float(target_weight) if target_weight else None,
+        "goal_type": goal_type,
+        "target_weeks": target_weeks,
+    }
+
+
+@app.route("/food/nutrition", methods=["POST"])
+@app.route("/food/nutritionix", methods=["POST"])
+def food_nutrition():
+    """
+    Use USDA FoodData Central to estimate calories and macros for a meal.
     """
     uid, redirect_resp = require_login()
     if redirect_resp:
@@ -583,28 +927,54 @@ def food_nutritionix():
 
     query = request.form.get("nutrition_query", "").strip()
     estimated_calories = None
+    estimated_protein = None
+    estimated_carbs = None
+    estimated_fat = None
     error_msg = None
 
     if query:
-        estimated_calories, error_msg = estimate_calories_with_nutritionix(query)
+        cal, p, c, f, err = search_usda_food(query)
+        if err:
+            error_msg = err
+        else:
+            estimated_calories = cal
+            estimated_protein = p
+            estimated_carbs = c
+            estimated_fat = f
 
-    # Load existing food logs
-    logs = []
-    docs = col(uid, "food_logs").order_by("date", direction=firestore.Query.DESCENDING).stream()
-    for d in docs:
-        entry = d.to_dict()
-        entry["id"] = d.id
-        if isinstance(entry.get("date"), datetime):
-            entry["date"] = entry["date"].strftime("%Y-%m-%d %H:%M:%S")
-        logs.append(entry)
-
+    # Load logs and targets (reuse food page logic)
+    logs, targets, today_totals, today_water, water_target = _food_page_data(uid)
     return render_template(
         "food.html",
         logs=logs,
+        targets=targets,
+        today_totals=today_totals,
+        today_water=today_water,
+        water_target=water_target,
         estimated_calories=estimated_calories,
+        estimated_protein=estimated_protein,
+        estimated_carbs=estimated_carbs,
+        estimated_fat=estimated_fat,
         nutrition_error=error_msg,
         nutrition_query=query,
     )
+
+
+@app.route('/food/water', methods=['POST'])
+def food_water():
+    """Log water intake."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+    amount = request.form.get("amount_ml", "250")
+    try:
+        amount_ml = max(50, min(2000, int(amount)))
+    except (TypeError, ValueError):
+        amount_ml = 250
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    col(uid, "water_logs").add({"date": today_str, "amount_ml": amount_ml})
+    flash("Water logged.", "success")
+    return redirect(url_for('food'))
 
 
 @app.route('/food/edit/<log_id>', methods=['GET', 'POST'])
@@ -616,15 +986,32 @@ def food_edit(log_id):
     ref = col(uid, "food_logs").document(log_id)
 
     if request.method == 'POST':
-        meal_type = request.form['meal_type']
-        food_items = request.form['food_items']
-        calories = request.form['calories']
-
-        ref.update({
+        meal_type, err = validate_required(request.form.get('meal_type'), "Meal type")
+        if err:
+            flash(err, "error")
+            return redirect(url_for('food_edit', log_id=log_id))
+        food_items, err = validate_required(request.form.get('food_items'), "Food items")
+        if err:
+            flash(err, "error")
+            return redirect(url_for('food_edit', log_id=log_id))
+        calories, err = validate_calories(request.form.get('calories', '0'))
+        if err:
+            flash(err, "error")
+            return redirect(url_for('food_edit', log_id=log_id))
+        update_data = {
             "meal_type": meal_type,
             "food_items": food_items,
-            "calories": calories
-        })
+            "calories": str(calories),
+        }
+        for k in ["protein_g", "carbs_g", "fat_g"]:
+            v = request.form.get(k, '')
+            if v:
+                try:
+                    update_data[k] = max(0, float(v))
+                except ValueError:
+                    pass
+        ref.update(update_data)
+        flash("Meal entry updated.", "success")
         return redirect(url_for('food'))
 
     snap = ref.get()
@@ -645,6 +1032,7 @@ def food_delete(log_id):
         return redirect_resp
 
     col(uid, "food_logs").document(log_id).delete()
+    flash("Meal entry deleted.", "success")
     return redirect(url_for('food'))
 
 # FITNESS CRUD
@@ -668,9 +1056,15 @@ def fitness():
     )
 
     if request.method == 'POST':
-        exercise = request.form['exercise']
-        duration = request.form['duration']
-        notes = request.form['notes']
+        exercise, err = validate_required(request.form.get('exercise'), "Exercise")
+        if err:
+            flash(err, "error")
+            return redirect(url_for('fitness'))
+        duration, err = validate_duration(request.form.get('duration', '0'))
+        if err:
+            flash(err, "error")
+            return redirect(url_for('fitness'))
+        notes = request.form.get('notes', '').strip()
         now = datetime.now()
 
         log_entry = {
@@ -681,6 +1075,7 @@ def fitness():
         }
 
         col(uid, "fitness_logs").add(log_entry)
+        flash("Workout logged successfully.", "success")
         return redirect(url_for('fitness'))
 
     docs = col(uid, "fitness_logs").order_by("date", direction=firestore.Query.DESCENDING).stream()
@@ -717,12 +1112,13 @@ def fitness_strava_sync():
     )
     if resp.status_code != 200:
         print("Strava activities fetch failed:", resp.text)
-        return redirect(url_for("fitness"))
+        flash("Strava sync failed. Please try again.", "error")
+        return redirect(url_for("integrations" if request.args.get("redirect") == "integrations" else "fitness"))
 
     activities = resp.json()
     
     # Get existing Strava activity IDs to avoid duplicates
-    existing_docs = col(uid, "fitness_logs").where("strava_id", "!=", "").stream()
+    existing_docs = col(uid, "fitness_logs").where(filter=FieldFilter("strava_id", "!=", "")).stream()
     existing_strava_ids = set()
     for doc in existing_docs:
         data = doc.to_dict()
@@ -751,7 +1147,7 @@ def fitness_strava_sync():
         try:
             activity_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
         except:
-            activity_date = datetime.utcnow()
+            activity_date = datetime.now(timezone.utc)
 
         log_entry = {
             "date": activity_date,
@@ -770,8 +1166,14 @@ def fitness_strava_sync():
         col(uid, "fitness_logs").add(log_entry)
         imported_count += 1
     
-    print(f"Imported {imported_count} new Strava activities for user {uid}")
-    return redirect(url_for("fitness"))
+    # Update last_sync_at in integrations/strava
+    _strava_token_ref(uid).set({"last_sync_at": datetime.now(timezone.utc)}, merge=True)
+
+    if imported_count > 0:
+        flash(f"Synced {imported_count} new activities from Strava.", "success")
+    else:
+        flash("No new activities to sync. You're up to date!", "info")
+    return redirect(url_for("integrations" if request.args.get("redirect") == "integrations" else "fitness"))
 
 
 @app.route('/fitness/edit/<log_id>', methods=['GET', 'POST'])
@@ -783,15 +1185,18 @@ def fitness_edit(log_id):
     ref = col(uid, "fitness_logs").document(log_id)
 
     if request.method == 'POST':
-        exercise = request.form['exercise']
-        duration = request.form['duration']
-        notes = request.form['notes']
+        exercise, err = validate_required(request.form.get('exercise'), "Exercise")
+        if err:
+            flash(err, "error")
+            return redirect(url_for('fitness_edit', log_id=log_id))
+        duration, err = validate_duration(request.form.get('duration', '0'))
+        if err:
+            flash(err, "error")
+            return redirect(url_for('fitness_edit', log_id=log_id))
+        notes = request.form.get('notes', '').strip()
 
-        ref.update({
-            "exercise": exercise,
-            "duration": duration,
-            "notes": notes
-        })
+        ref.update({"exercise": exercise, "duration": duration, "notes": notes})
+        flash("Workout updated.", "success")
         return redirect(url_for('fitness'))
 
     snap = ref.get()
@@ -813,7 +1218,9 @@ def fitness_delete(log_id):
         return redirect_resp
 
     col(uid, "fitness_logs").document(log_id).delete()
+    flash("Workout deleted.", "success")
     return redirect(url_for('fitness'))
+
 
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
@@ -824,11 +1231,17 @@ def profile():
     user_ref = db.collection("users").document(uid)
     
     if request.method == "POST":
-        # Update profile data
         profile_data = {
             "name": request.form.get("name", ""),
             "height": request.form.get("height", ""),
             "weight": request.form.get("weight", ""),
+            "age": request.form.get("age", ""),
+            "gender": request.form.get("gender", "male"),
+            "target_weight": request.form.get("target_weight", ""),
+            "goal_type": request.form.get("goal_type", "maintain"),
+            "target_weeks": request.form.get("target_weeks", ""),
+            "activity_level": request.form.get("activity_level", "moderate"),
+            "water_target_ml": int(request.form.get("water_target_ml") or 2000),
             "city": request.form.get("city", ""),
             "country": request.form.get("country", "").upper(),
             "goals": request.form.get("goals", ""),
@@ -852,31 +1265,56 @@ def profile():
                 profile_data["weight"] = None
         else:
             profile_data["weight"] = None
-        
+        if profile_data["age"]:
+            try:
+                profile_data["age"] = int(profile_data["age"])
+            except ValueError:
+                profile_data["age"] = None
+        else:
+            profile_data["age"] = None
+        if profile_data["target_weight"]:
+            try:
+                profile_data["target_weight"] = float(profile_data["target_weight"])
+            except ValueError:
+                profile_data["target_weight"] = None
+        else:
+            profile_data["target_weight"] = None
+        if profile_data["target_weeks"]:
+            try:
+                profile_data["target_weeks"] = int(profile_data["target_weeks"])
+            except ValueError:
+                profile_data["target_weeks"] = None
+        else:
+            profile_data["target_weeks"] = None
+
         user_ref.set(profile_data, merge=True)
         return redirect(url_for("profile"))
     
     # GET: Load current profile
     user_doc = user_ref.get()
     profile_data = {
-        "name": "",
-        "height": "",
-        "weight": "",
-        "city": "",
-        "country": "",
-        "goals": "",
+        "name": "", "height": "", "weight": "", "age": "",
+        "gender": "male", "target_weight": "", "goal_type": "maintain",
+        "target_weeks": "", "activity_level": "moderate",
+        "water_target_ml": 2000,
+        "city": "", "country": "", "goals": "",
         "email": session.get("user_email", "")
     }
     
     if user_doc.exists:
         data = user_doc.to_dict()
-        # Convert height and weight to strings for form display, or empty string if None
-        height_val = data.get("height")
-        weight_val = data.get("weight")
+        for k in ["height", "weight", "target_weight"]:
+            v = data.get(k)
+            profile_data[k] = str(v) if v is not None else ""
+        for k in ["age", "target_weeks"]:
+            v = data.get(k)
+            profile_data[k] = str(v) if v is not None else ""
         profile_data.update({
             "name": data.get("name", ""),
-            "height": str(height_val) if height_val is not None else "",
-            "weight": str(weight_val) if weight_val is not None else "",
+            "gender": data.get("gender", "male"),
+            "goal_type": data.get("goal_type", "maintain"),
+            "activity_level": data.get("activity_level", "moderate"),
+            "water_target_ml": data.get("water_target_ml") or 2000,
             "city": data.get("city", ""),
             "country": data.get("country", ""),
             "goals": data.get("goals", ""),
@@ -909,12 +1347,27 @@ def dashboard():
     if user_doc.exists:
         profile = user_doc.to_dict()
 
+    quote = get_daily_quote()
+    city = (profile or {}).get("city") or "Dublin"
+    country = (profile or {}).get("country") or "IE"
+    weather = get_weather(city, country)
+    suggestion = get_activity_suggestion(weather) if weather else None
+
+    days_param = request.args.get("days", "14")
+    chart_days = int(days_param) if days_param in ("7", "14", "30") else 14
+    chart_data = _get_chart_data(uid, chart_days)
+
     return render_template(
         "dashboard.html",
         mood_count=mood_count,
         food_count=food_count,
         fitness_count=fitness_count,
-        profile=profile
+        profile=profile,
+        quote=quote,
+        weather=weather,
+        suggestion=suggestion,
+        chart_data=chart_data,
+        chart_days=chart_days,
     )
 
 
@@ -1065,9 +1518,9 @@ def api_status():
             "configured": bool(OPENWEATHER_API_KEY),
             "working": False
         },
-        "nutritionix": {
-            "configured": bool(NUTRITIONIX_APP_ID and NUTRITIONIX_API_KEY),
-            "note": "Waiting for API access" if not NUTRITIONIX_APP_ID else "Ready"
+        "nutrition": {
+            "configured": bool(USDA_FDC_API_KEY),
+            "note": "USDA FDC - get free key at api.data.gov" if not USDA_FDC_API_KEY else "Ready"
         },
         "firebase": {
             "configured": True,
@@ -1096,24 +1549,17 @@ def _to_date_str(dt):
     return str(dt)[:10] if dt else None
 
 
-@app.route("/api/charts")
-def api_charts():
-    """Return chart data for mood, food, and fitness (last 14 days)."""
-    uid, redirect_resp = require_login()
-    if redirect_resp:
-        return {"error": "Not logged in"}, 401
-
+def _get_chart_data(uid, days_back=14):
+    """Return chart data for mood, food, fitness. Used by dashboard and API."""
     from collections import defaultdict
 
-    # Last 14 days
-    days_back = 14
     today = datetime.now().date()
-    date_labels = [(today - timedelta(days=i)).strftime("%m/%d") for i in range(days_back - 1, -1, -1)]
-    date_keys = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days_back - 1, -1, -1)]
+    date_keys = [(today - timedelta(days=days_back - 1 - i)).strftime("%Y-%m-%d") for i in range(days_back)]
+    date_labels = [(today - timedelta(days=days_back - 1 - i)).strftime("%m/%d") for i in range(days_back)]
+    limit = max(100, days_back * 5)
 
-    # Mood: average per day (1-5 scale)
     mood_by_day = defaultdict(list)
-    for d in col(uid, "mood_logs").order_by("date", direction=firestore.Query.DESCENDING).limit(50).stream():
+    for d in col(uid, "mood_logs").order_by("date", direction=firestore.Query.DESCENDING).limit(limit).stream():
         entry = d.to_dict()
         ds = _to_date_str(entry.get("date"))
         if ds:
@@ -1126,9 +1572,8 @@ def api_charts():
         vals = mood_by_day.get(dk, [])
         mood_data.append(round(sum(vals) / len(vals), 1) if vals else None)
 
-    # Food: total calories per day
     food_by_day = defaultdict(int)
-    for d in col(uid, "food_logs").order_by("date", direction=firestore.Query.DESCENDING).limit(50).stream():
+    for d in col(uid, "food_logs").order_by("date", direction=firestore.Query.DESCENDING).limit(limit).stream():
         entry = d.to_dict()
         ds = _to_date_str(entry.get("date"))
         if ds:
@@ -1139,9 +1584,8 @@ def api_charts():
 
     food_data = [food_by_day.get(dk, 0) for dk in date_keys]
 
-    # Fitness: total minutes per day
     fitness_by_day = defaultdict(int)
-    for d in col(uid, "fitness_logs").order_by("date", direction=firestore.Query.DESCENDING).limit(80).stream():
+    for d in col(uid, "fitness_logs").order_by("date", direction=firestore.Query.DESCENDING).limit(limit).stream():
         entry = d.to_dict()
         ds = _to_date_str(entry.get("date"))
         if ds:
@@ -1151,13 +1595,27 @@ def api_charts():
                 pass
 
     fitness_data = [fitness_by_day.get(dk, 0) for dk in date_keys]
-
+    has_any = any(mood_data) or any(food_data) or any(fitness_data)
     return {
         "labels": date_labels,
         "mood": mood_data,
         "food": food_data,
         "fitness": fitness_data,
+        "days": days_back,
+        "empty_message": None if has_any else "No data for this period. Log some entries to see your trends."
     }
+
+
+@app.route("/api/charts")
+def api_charts():
+    """Return chart data for mood, food, and fitness. Query param: days=7|14|30 (default 14)."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return {"error": "Not logged in"}, 401
+
+    days_param = request.args.get("days", "14")
+    days_back = int(days_param) if days_param in ("7", "14", "30") else 14
+    return _get_chart_data(uid, days_back)
 
 
 # ===================== ENHANCED DASHBOARD WITH WEATHER =====================
@@ -1178,6 +1636,189 @@ def dashboard_widgets():
         "activity_suggestion": suggestion,
         "quote": quote
     }
+
+
+@app.route("/aura")
+def aura():
+    """Aura AI scaffolding page (coming next iteration)."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+    # In future: use recent mood/food/fitness data to generate AI insights.
+    return render_template("aura.html")
+
+
+@app.route("/buddies")
+def buddies():
+    """Buddy system page: suggestions, requests, and current buddies."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    user_doc = db.collection("users").document(uid).get()
+    profile = user_doc.to_dict() if user_doc.exists else {}
+
+    # Map location string from profile (city / country)
+    map_location = None
+    if profile:
+        city = profile.get("city")
+        country = profile.get("country")
+        if city and country:
+            map_location = f"{city}, {country}"
+        elif city:
+            map_location = city
+
+    # Load buddy links for current user
+    links = []
+    for d in col(uid, "buddy_links").stream():
+        data = d.to_dict() or {}
+        data["other_uid"] = data.get("other_uid") or d.id
+        links.append(data)
+
+    accepted_uids = {l["other_uid"] for l in links if l.get("status") == "accepted"}
+    pending_out_uids = {l["other_uid"] for l in links if l.get("status") == "pending_out"}
+    pending_in_uids = {l["other_uid"] for l in links if l.get("status") == "pending_in"}
+
+    all_linked_uids = accepted_uids | pending_out_uids | pending_in_uids
+
+    # Fetch profiles for linked users
+    user_profiles = {}
+    for other_uid in all_linked_uids:
+        doc = db.collection("users").document(other_uid).get()
+        if doc.exists:
+            user_profiles[other_uid] = doc.to_dict()
+
+    def _build_items(uids):
+        items = []
+        for other_uid in uids:
+            prof = user_profiles.get(other_uid, {})
+            items.append({"uid": other_uid, "profile": prof})
+        return items
+
+    current_buddies = _build_items(accepted_uids)
+    incoming_requests = _build_items(pending_in_uids)
+    outgoing_requests = _build_items(pending_out_uids)
+
+    # Suggested buddies: same country (if set), excluding self and already linked users
+    suggestions = []
+    seen = {uid} | all_linked_uids
+    users_ref = db.collection("users")
+    country = profile.get("country")
+    if country:
+        users_ref = users_ref.where("country", "==", country)
+    try:
+        for d in users_ref.limit(30).stream():
+            other_uid = d.id
+            if other_uid in seen:
+                continue
+            prof = d.to_dict() or {}
+            suggestions.append({"uid": other_uid, "profile": prof})
+    except Exception:
+        suggestions = []
+
+    return render_template(
+        "buddies.html",
+        profile=profile,
+        google_maps_api_key=GOOGLE_MAPS_API_KEY,
+        map_location=map_location,
+        current_buddies=current_buddies,
+        incoming_requests=incoming_requests,
+        outgoing_requests=outgoing_requests,
+        suggested_buddies=suggestions,
+    )
+
+
+@app.route("/buddies/request/<other_uid>", methods=["POST"])
+def buddies_request(other_uid):
+    """Send a buddy request to another user."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+    if uid == other_uid:
+        flash("You cannot send a buddy request to yourself.", "error")
+        return redirect(url_for("buddies"))
+
+    target_doc = db.collection("users").document(other_uid).get()
+    if not target_doc.exists:
+        flash("User not found.", "error")
+        return redirect(url_for("buddies"))
+
+    now = datetime.now(timezone.utc)
+
+    # Current user's view
+    my_ref = col(uid, "buddy_links").document(other_uid)
+    my_data = my_ref.get().to_dict() if my_ref.get().exists else {}
+    if my_data.get("status") == "accepted":
+        flash("You are already buddies.", "info")
+        return redirect(url_for("buddies"))
+    if my_data.get("status") == "pending_out":
+        flash("Buddy request already sent.", "info")
+        return redirect(url_for("buddies"))
+
+    my_ref.set(
+        {"other_uid": other_uid, "status": "pending_out", "created_at": now},
+        merge=True,
+    )
+
+    # Target user's view
+    other_ref = col(other_uid, "buddy_links").document(uid)
+    other_ref.set(
+        {"other_uid": uid, "status": "pending_in", "created_at": now},
+        merge=True,
+    )
+
+    flash("Buddy request sent.", "success")
+    return redirect(url_for("buddies"))
+
+
+@app.route("/buddies/accept/<other_uid>", methods=["POST"])
+def buddies_accept(other_uid):
+    """Accept an incoming buddy request."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    my_ref = col(uid, "buddy_links").document(other_uid)
+    snap = my_ref.get()
+    if not snap.exists or snap.to_dict().get("status") != "pending_in":
+        flash("No incoming request to accept.", "error")
+        return redirect(url_for("buddies"))
+
+    my_ref.set({"status": "accepted"}, merge=True)
+    other_ref = col(other_uid, "buddy_links").document(uid)
+    other_ref.set({"status": "accepted"}, merge=True)
+
+    flash("Buddy request accepted.", "success")
+    return redirect(url_for("buddies"))
+
+
+@app.route("/buddies/decline/<other_uid>", methods=["POST"])
+def buddies_decline(other_uid):
+    """Decline or cancel a buddy request."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    # Remove from both sides if present
+    col(uid, "buddy_links").document(other_uid).delete()
+    col(other_uid, "buddy_links").document(uid).delete()
+
+    flash("Buddy request updated.", "info")
+    return redirect(url_for("buddies"))
+
+
+@app.route("/buddies/remove/<other_uid>", methods=["POST"])
+def buddies_remove(other_uid):
+    """Remove an existing buddy connection."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    col(uid, "buddy_links").document(other_uid).delete()
+    col(other_uid, "buddy_links").document(uid).delete()
+
+    flash("Buddy removed.", "info")
+    return redirect(url_for("buddies"))
 
 
 if __name__ == '__main__':

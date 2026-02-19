@@ -179,12 +179,15 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-fetch('/api/charts').then(r=>r.json()).then(d=>{
+fetch('/api/charts?days=14').then(r=>r.json()).then(d=>{
   if(document.getElementById('fitnessChart')&&d.labels){
+    const opts = { responsive: true, plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6c757d' } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6c757d' } } } };
     new Chart(document.getElementById('fitnessChart'),{
       type:'bar',
-      data:{labels:d.labels,datasets:[{label:'Minutes',data:d.fitness,backgroundColor:'rgba(255,193,7,0.6)',borderColor:'#ffc107',borderWidth:1}]},
-      options:{responsive:true}
+      data:{labels:d.labels,datasets:[{label:'Minutes',data:d.fitness,backgroundColor:'rgba(249,115,22,0.7)',borderColor:'#f97316',borderWidth:1,borderRadius:6}]},
+      options: opts
     });
   }
 }).catch(()=>{});

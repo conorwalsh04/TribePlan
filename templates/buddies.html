@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Buddies | TribePlan{% endblock %}
+{% block content %}
+<div class="overlay-content container">
+  <div class="tribeplan-hero mb-4">
+    <h1 class="h3 mb-1">Workout Buddies</h1>
+    <p class="lead mb-0 opacity-90">Find people with similar goals and locations to stay accountable and make training more fun.</p>
+  </div>
+
+  <div class="card tribeplan-card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Planned features for next iteration</h5>
+    </div>
+    <div class="card-body">
+      <ul class="mb-0">
+        <li><strong>Smart matching</strong> – use your profile (goals, city/country, activity level) to suggest compatible buddies.</li>
+        <li><strong>Buddy requests</strong> – send and accept simple connection requests.</li>
+        <li><strong>Shared check‑ins</strong> – see each other’s recent mood/fitness streaks at a glance.</li>
+        <li><strong>Conversation starter prompts</strong> – light, AI‑assisted prompts to make it easy to say hello.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
+      <div class="card tribeplan-card h-100">
+        <div class="card-header">
+          <h5 class="mb-0">Suggested buddies near you</h5>
+        </div>
+        <div class="card-body">
+          {% if suggested_buddies %}
+            <p class="text-muted small">Based on your country and excluding existing connections.</p>
+            <ul class="list-group mb-0">
+              {% for item in suggested_buddies %}
+                {% set p = item.profile %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>{{ p.name or 'User' }}</strong>
+                    {% if p.city or p.country %}
+                      <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
+                    {% endif %}
+                    {% if p.goals %}
+                      <div class="text-muted small">{{ p.goals }}</div>
+                    {% endif %}
+                  </div>
+                  <form method="POST" action="{{ url_for('buddies_request', other_uid=item.uid) }}">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Connect</button>
+                  </form>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted mb-0">No suggestions yet. Try setting your city and country in your profile.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card tribeplan-card h-100">
+        <div class="card-header">
+          <h5 class="mb-0">Your buddies</h5>
+        </div>
+        <div class="card-body">
+          {% if current_buddies %}
+            <ul class="list-group mb-0">
+              {% for item in current_buddies %}
+                {% set p = item.profile %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>{{ p.name or 'User' }}</strong>
+                    {% if p.city or p.country %}
+                      <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
+                    {% endif %}
+                    {% if p.goals %}
+                      <div class="text-muted small">{{ p.goals }}</div>
+                    {% endif %}
+                  </div>
+                  <form method="POST" action="{{ url_for('buddies_remove', other_uid=item.uid) }}" onsubmit="return confirm('Remove this buddy?');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                  </form>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted mb-0">No buddies yet. Send a request from the suggestions list.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
+      <div class="card tribeplan-card h-100">
+        <div class="card-header">
+          <h5 class="mb-0">Incoming requests</h5>
+        </div>
+        <div class="card-body">
+          {% if incoming_requests %}
+            <ul class="list-group mb-0">
+              {% for item in incoming_requests %}
+                {% set p = item.profile %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>{{ p.name or 'User' }}</strong>
+                    {% if p.city or p.country %}
+                      <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
+                    {% endif %}
+                    {% if p.goals %}
+                      <div class="text-muted small">{{ p.goals }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="d-flex gap-2">
+                    <form method="POST" action="{{ url_for('buddies_accept', other_uid=item.uid) }}">
+                      <button type="submit" class="btn btn-sm btn-success">Accept</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('buddies_decline', other_uid=item.uid) }}">
+                      <button type="submit" class="btn btn-sm btn-outline-secondary">Decline</button>
+                    </form>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted mb-0">No incoming requests.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card tribeplan-card h-100">
+        <div class="card-header">
+          <h5 class="mb-0">Requests you’ve sent</h5>
+        </div>
+        <div class="card-body">
+          {% if outgoing_requests %}
+            <ul class="list-group mb-0">
+              {% for item in outgoing_requests %}
+                {% set p = item.profile %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>{{ p.name or 'User' }}</strong>
+                    {% if p.city or p.country %}
+                      <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
+                    {% endif %}
+                    {% if p.goals %}
+                      <div class="text-muted small">{{ p.goals }}</div>
+                    {% endif %}
+                  </div>
+                  <form method="POST" action="{{ url_for('buddies_decline', other_uid=item.uid) }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Cancel</button>
+                  </form>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted mb-0">No outgoing requests.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card tribeplan-card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Location & map</h5>
+    </div>
+    <div class="card-body">
+      {% if not google_maps_api_key %}
+        <p class="text-muted mb-2">
+          To enable maps in the next iteration, add a <code>GOOGLE_MAPS_API_KEY</code> to your <code>.env</code>
+          file (Google Cloud Console → Maps JavaScript API).
+        </p>
+      {% else %}
+        <p class="mb-2">
+          Google Maps API key is configured. The map below uses your profile location
+          {% if map_location %}(<strong>{{ map_location }}</strong>){% else %}(set your city/country in Profile){% endif %}.
+        </p>
+        <div class="border rounded bg-light p-2">
+          <div id="buddies-map" style="height: 260px; width: 100%;"></div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <p class="text-muted small mb-0">
+    This page is partially scaffolded – the map is live, but matching logic and messaging will be added in the next iteration.
+  </p>
+</div>
+{% if google_maps_api_key %}
+  {% set js_location = map_location or 'Cork, IE' %}
+  <script>
+    const BUDDIES_MAP_LOCATION = {{ js_location|tojson }};
+    function initBuddiesMap() {
+      const mapEl = document.getElementById('buddies-map');
+      if (!mapEl || !window.google || !google.maps) return;
+
+      // Default center (Cork); will re-center if geocoding succeeds
+      const defaultCenter = { lat: 51.8985, lng: -8.4756 };
+      const map = new google.maps.Map(mapEl, {
+        zoom: 12,
+        center: defaultCenter,
+      });
+
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: BUDDIES_MAP_LOCATION }, function(results, status) {
+        let center = defaultCenter;
+        if (status === 'OK' && results[0]) {
+          center = results[0].geometry.location;
+          map.setCenter(center);
+          new google.maps.Marker({
+            map,
+            position: center,
+            label: 'You',
+            title: BUDDIES_MAP_LOCATION,
+          });
+        }
+
+        // Dummy nearby buddies (for visualisation only)
+        const baseLat = center.lat || center.lat();
+        const baseLng = center.lng || center.lng();
+        const dummyBuddies = [
+          { name: 'Sarah – Morning runs', lat: baseLat + 0.01, lng: baseLng + 0.01 },
+          { name: 'Liam – Gym & strength', lat: baseLat - 0.008, lng: baseLng + 0.012 },
+          { name: 'Aoife – Yoga & walks', lat: baseLat + 0.006, lng: baseLng - 0.009 },
+        ];
+
+        dummyBuddies.forEach(b => {
+          new google.maps.Marker({
+            map,
+            position: { lat: b.lat, lng: b.lng },
+            title: b.name,
+          });
+        });
+      });
+    }
+  </script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initBuddiesMap"></script>
+{% endif %}
+{% endblock %}

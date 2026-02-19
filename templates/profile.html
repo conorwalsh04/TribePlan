@@ -23,17 +23,71 @@
             </div>
             
             <div class="row">
-              <div class="col-md-6 mb-3">
+              <div class="col-md-4 mb-3">
                 <label for="height" class="form-label">Height (cm)</label>
                 <input type="number" class="form-control" id="height" name="height" 
-                       value="{{ profile.height or '' }}" placeholder="e.g., 175" step="0.1" min="0">
+                       value="{{ profile.height or '' }}" placeholder="175" step="0.1" min="0">
               </div>
-              
-              <div class="col-md-6 mb-3">
+              <div class="col-md-4 mb-3">
                 <label for="weight" class="form-label">Weight (kg)</label>
                 <input type="number" class="form-control" id="weight" name="weight" 
-                       value="{{ profile.weight or '' }}" placeholder="e.g., 70" step="0.1" min="0">
+                       value="{{ profile.weight or '' }}" placeholder="70" step="0.1" min="0">
               </div>
+              <div class="col-md-4 mb-3">
+                <label for="age" class="form-label">Age</label>
+                <input type="number" class="form-control" id="age" name="age" 
+                       value="{{ profile.age or '' }}" placeholder="25" min="13" max="120">
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label">Gender</label>
+              <select class="form-select" name="gender">
+                <option value="male" {% if profile.gender == 'male' %}selected{% endif %}>Male</option>
+                <option value="female" {% if profile.gender == 'female' %}selected{% endif %}>Female</option>
+              </select>
+            </div>
+
+            <hr class="my-4">
+            <h5 class="mb-3">Nutrition & Weight Goals</h5>
+            
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label for="goal_type" class="form-label">Goal</label>
+                <select class="form-select" id="goal_type" name="goal_type">
+                  <option value="lose" {% if profile.goal_type == 'lose' %}selected{% endif %}>Lose weight</option>
+                  <option value="maintain" {% if profile.goal_type == 'maintain' %}selected{% endif %}>Maintain weight</option>
+                  <option value="gain" {% if profile.goal_type == 'gain' %}selected{% endif %}>Gain weight</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="target_weight" class="form-label">Target weight (kg)</label>
+                <input type="number" class="form-control" id="target_weight" name="target_weight" 
+                       value="{{ profile.target_weight or '' }}" placeholder="e.g., 75" step="0.1" min="0">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="target_weeks" class="form-label">Timeframe (weeks)</label>
+                <input type="number" class="form-control" id="target_weeks" name="target_weeks" 
+                       value="{{ profile.target_weeks or '' }}" placeholder="12" min="1" max="52">
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="water_target_ml" class="form-label">Daily water goal (ml)</label>
+              <input type="number" class="form-control" id="water_target_ml" name="water_target_ml" 
+                     value="{{ profile.water_target_ml or 2000 }}" placeholder="2000" min="500" max="5000" step="100">
+              <small class="form-text text-muted">Default 2000ml (about 8 glasses)</small>
+            </div>
+
+            <div class="mb-3">
+              <label for="activity_level" class="form-label">Activity level</label>
+              <select class="form-select" id="activity_level" name="activity_level">
+                <option value="sedentary" {% if profile.activity_level == 'sedentary' %}selected{% endif %}>Sedentary (little/no exercise)</option>
+                <option value="light" {% if profile.activity_level == 'light' %}selected{% endif %}>Light (1-3 days/week)</option>
+                <option value="moderate" {% if profile.activity_level == 'moderate' %}selected{% endif %}>Moderate (3-5 days/week)</option>
+                <option value="active" {% if profile.activity_level == 'active' %}selected{% endif %}>Active (6-7 days/week)</option>
+                <option value="very_active" {% if profile.activity_level == 'very_active' %}selected{% endif %}>Very active (heavy exercise)</option>
+              </select>
             </div>
             
             <div class="row">
