@@ -1,169 +1,168 @@
 {% extends "base.html" %}
-
 {% block title %}Welcome to TribePlan{% endblock %}
+{% block main_class %}home-main{% endblock %}
+{% block body_extra_class %}home-body{% endblock %}
 
 {% block content %}
-<div class="overlay-content text-center text-dark">
+<div class="home-page">
+  {# Hero: Apple-style headline + CTAs #}
+  <section class="home-hero">
     {% if not is_logged_in %}
-    <div class="tribeplan-logo-wrap mb-4">
-      <img src="{{ url_for('static', filename='img/logo-tribeplan.png') }}" alt="TribePlan" height="100" class="tribeplan-logo-img">
+    <div class="home-hero-logo">
+      <img src="{{ url_for('static', filename='img/logo-tribeplan.png') }}" alt="TribePlan" class="tribeplan-logo-img">
     </div>
     {% endif %}
-    
-    <h1 class="display-4 fw-bold mb-3">
-        {% if is_logged_in and profile.name %}
-        Welcome back, {{ profile.name.split()[0] }}!
-        {% else %}
-        Welcome to TribePlan
-        {% endif %}
+    <h1>
+      {% if is_logged_in and profile.name %}
+      Welcome back, {{ profile.name.split()[0] }}
+      {% else %}
+      TribePlan
+      {% endif %}
     </h1>
-    <p class="lead mb-4">Track your mood, fitness, nutrition — and grow with your tribe.</p>
-
+    <p class="lead">
+      {% if is_logged_in %}
+      Your wellness at a glance. Mood, fitness, nutrition — and your tribe.
+      {% else %}
+      Track your mood, fitness, and nutrition. Grow with your tribe.
+      {% endif %}
+    </p>
     {% if not is_logged_in %}
-    <div class="alert alert-info mb-4" role="alert">
-        <strong>Welcome!</strong> You're viewing TribePlan in guest mode. 
-        <a href="{{ url_for('login') }}" class="alert-link fw-semibold">Sign in</a> or 
-        <a href="{{ url_for('register') }}" class="alert-link fw-semibold">create an account</a> 
-        to start logging your wellness data.
+    <div class="alert alert-info d-inline-block mb-3" role="alert">
+      <a href="{{ url_for('login') }}" class="alert-link fw-semibold">Sign in</a> or
+      <a href="{{ url_for('register') }}" class="alert-link fw-semibold">create an account</a>
+      to start.
     </div>
     {% endif %}
+    <div class="home-ctas">
+      {% if is_logged_in %}
+      <a href="{{ url_for('mood') }}" class="btn btn-light">Mood</a>
+      <a href="{{ url_for('fitness') }}" class="btn btn-light">Fitness</a>
+      <a href="{{ url_for('food') }}" class="btn btn-light">Nutrition</a>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light">Dashboard</a>
+      {% else %}
+      <a href="{{ url_for('login') }}" class="btn btn-light">Sign in</a>
+      <a href="{{ url_for('register') }}" class="btn btn-outline-light">Create account</a>
+      {% endif %}
+    </div>
+  </section>
 
-    <div class="d-flex justify-content-center flex-wrap gap-3 mb-5">
-        {% if is_logged_in %}
-        <a href="{{ url_for('mood') }}" class="btn btn-outline-primary btn-lg">Mood Check-In</a>
-        <a href="{{ url_for('fitness') }}" class="btn btn-outline-primary btn-lg">Fitness Tracker</a>
-        <a href="{{ url_for('food') }}" class="btn btn-outline-primary btn-lg">Food Log</a>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-info btn-lg">Dashboard</a>
+  {# Mood – full-bleed video section (use static/img/mood-bg.mp4 for your own clip) #}
+  <section class="home-video-section home-mood">
+    <video class="home-video-bg" autoplay muted loop playsinline>
+      <source src="{{ url_for('static', filename=topic_video_mood) }}" type="video/mp4">
+    </video>
+    <div class="home-video-overlay" aria-hidden="true"></div>
+    <div class="home-section-content">
+      <h2 class="home-section-title">Mood</h2>
+      {% if is_logged_in %}
+        {% if stats.mood_avg is not none %}
+        <p class="home-section-stat mb-0">{{ stats.mood_avg }}/5</p>
+        <p class="home-section-sub">Average mood · {{ stats.mood_count }} logs</p>
         {% else %}
-        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Get Started - Sign In</a>
-        <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">Create Account</a>
+        <p class="home-section-sub">Log how you feel and spot patterns over time.</p>
         {% endif %}
+      {% else %}
+      <p class="home-section-sub">Log daily check-ins and journal entries. See your emotional wellness over time.</p>
+      {% endif %}
+      <a href="{{ url_for('mood') }}" class="home-section-cta">{% if is_logged_in %}Log mood{% else %}Learn more{% endif %}</a>
     </div>
+  </section>
 
-    {% if is_logged_in %}
-    <!-- Real User Stats -->
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="card bg-dark text-white h-100 shadow">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h5 class="card-title mb-0">Mood</h5>
-                        <span class="badge bg-primary">{{ stats.mood_count }} logs</span>
-                    </div>
-                    {% if stats.mood_avg %}
-                    <p class="display-5 mb-1">{{ stats.mood_avg }}<small class="fs-6 text-muted">/5</small></p>
-                    <p class="text-muted small mb-2">Average mood score</p>
-                    {% else %}
-                    <p class="text-muted mb-2">No mood logs yet</p>
-                    {% endif %}
-                    <a href="{{ url_for('mood') }}" class="btn btn-sm btn-outline-info">Log Mood</a>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4">
-            <div class="card bg-dark text-white h-100 shadow">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h5 class="card-title mb-0">Fitness</h5>
-                        {% if stats.strava_connected %}
-                        <span class="badge bg-success">Strava</span>
-                        {% else %}
-                        <span class="badge bg-secondary">{{ stats.fitness_count }} sessions</span>
-                        {% endif %}
-                    </div>
-                    {% if stats.fitness_count > 0 %}
-                    <p class="display-5 mb-1">{{ stats.fitness_mins }}<small class="fs-6 text-muted"> mins</small></p>
-                    <p class="text-muted small mb-2">
-                        {% if stats.recent_workout %}
-                        Last: {{ stats.recent_workout }}
-                        {% else %}
-                        Total workout time
-                        {% endif %}
-                    </p>
-                    {% else %}
-                    <p class="text-muted mb-2">No workouts logged yet</p>
-                    {% endif %}
-                    <a href="{{ url_for('fitness') }}" class="btn btn-sm btn-outline-info">
-                        {% if stats.strava_connected %}Sync Strava{% else %}Log Workout{% endif %}
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4">
-            <div class="card bg-dark text-white h-100 shadow">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h5 class="card-title mb-0">Nutrition</h5>
-                        <span class="badge bg-warning text-dark">{{ stats.food_count }} meals</span>
-                    </div>
-                    {% if stats.food_count > 0 %}
-                    <p class="display-5 mb-1">{{ "{:,}".format(stats.total_calories) }}<small class="fs-6 text-muted"> kcal</small></p>
-                    <p class="text-muted small mb-2">Total calories logged</p>
-                    {% else %}
-                    <p class="text-muted mb-2">No meals logged yet</p>
-                    {% endif %}
-                    <a href="{{ url_for('food') }}" class="btn btn-sm btn-outline-info">Log Meal</a>
-                </div>
-            </div>
-        </div>
+  {# Fitness – full-bleed video section (use static/img/fitness-bg.mp4 for running/gym clip) #}
+  <section class="home-video-section home-fitness">
+    <video class="home-video-bg" autoplay muted loop playsinline>
+      <source src="{{ url_for('static', filename=topic_video_fitness) }}" type="video/mp4">
+    </video>
+    <div class="home-video-overlay" aria-hidden="true"></div>
+    <div class="home-section-content">
+      <h2 class="home-section-title">Fitness</h2>
+      {% if is_logged_in %}
+        {% if stats.fitness_count > 0 %}
+        <p class="home-section-stat mb-0">{{ stats.fitness_mins }} min</p>
+        <p class="home-section-sub">{% if stats.recent_workout %}Last: {{ stats.recent_workout }}{% else %}{{ stats.fitness_count }} sessions{% endif %}</p>
+        {% else %}
+        <p class="home-section-sub">Record workouts or connect Strava to sync activities from your watch.</p>
+        {% endif %}
+      {% else %}
+      <p class="home-section-sub">Record workouts or connect Strava. Sync from Garmin, Apple Watch, and more.</p>
+      {% endif %}
+      <a href="{{ url_for('fitness') }}" class="home-section-cta">{% if is_logged_in %}{% if stats.strava_connected %}Sync Strava{% else %}Log workout{% endif %}{% else %}Learn more{% endif %}</a>
     </div>
-    
-    <!-- Quick Actions -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card bg-light">
-                <div class="card-body py-3">
-                    <div class="d-flex flex-wrap justify-content-center gap-2">
-                        {% if not stats.strava_connected %}
-                        <a href="{{ url_for('connect_strava') }}" class="btn btn-danger btn-sm">
-                            Connect Strava
-                        </a>
-                        {% endif %}
-                        <a href="{{ url_for('profile') }}" class="btn btn-outline-secondary btn-sm">
-                            Edit Profile
-                        </a>
-                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary btn-sm">
-                            View Dashboard
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
+  </section>
+
+  {# Nutrition – full-bleed video section (use static/img/nutrition-bg.mp4 for food clip) #}
+  <section class="home-video-section home-nutrition">
+    <video class="home-video-bg" autoplay muted loop playsinline>
+      <source src="{{ url_for('static', filename=topic_video_nutrition) }}" type="video/mp4">
+    </video>
+    <div class="home-video-overlay" aria-hidden="true"></div>
+    <div class="home-section-content">
+      <h2 class="home-section-title">Nutrition</h2>
+      {% if is_logged_in %}
+        {% if stats.food_count > 0 %}
+        <p class="home-section-stat mb-0">{{ "{:,}".format(stats.total_calories) }} kcal</p>
+        <p class="home-section-sub">{{ stats.food_count }} meals logged</p>
+        {% else %}
+        <p class="home-section-sub">Log meals and calories. Hit your targets with less guesswork.</p>
+        {% endif %}
+      {% else %}
+      <p class="home-section-sub">Track meals and calories. Balance your diet and reach your goals.</p>
+      {% endif %}
+      <a href="{{ url_for('food') }}" class="home-section-cta">{% if is_logged_in %}Log meal{% else %}Learn more{% endif %}</a>
     </div>
-    
-    {% else %}
-    <!-- Features for non-logged-in users -->
-    <div class="row g-4 mt-4">
-        <div class="col-md-4">
-            <div class="card bg-dark text-white h-100 shadow">
-                <div class="card-body text-center">
-                    <div class="display-4 mb-3">📊</div>
-                    <h5 class="card-title">Track Your Mood</h5>
-                    <p class="card-text">Log daily mood check-ins and journal entries to monitor your emotional wellness over time.</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-dark text-white h-100 shadow">
-                <div class="card-body text-center">
-                    <div class="display-4 mb-3">💪</div>
-                    <h5 class="card-title">Fitness Tracker</h5>
-                    <p class="card-text">Record workouts manually or connect with Strava to automatically sync your fitness activities.</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-dark text-white h-100 shadow">
-                <div class="card-body text-center">
-                    <div class="display-4 mb-3">🍎</div>
-                    <h5 class="card-title">Nutrition Log</h5>
-                    <p class="card-text">Monitor your meals and calories to maintain a balanced diet and reach your health goals.</p>
-                </div>
-            </div>
-        </div>
+  </section>
+
+  {% if is_logged_in %}
+  {# Wearables summary strip #}
+  <section class="home-wearables-strip">
+    <p class="mb-3 opacity-90">Steps · Sleep · Resting HR</p>
+    <div class="home-wearables-inner">
+      {% if stats.today_steps is not none or stats.avg_steps_7d is not none %}
+      <a href="{{ url_for('wearables') }}" class="home-wearable-pill">
+        Steps {% if stats.today_steps is not none %}{{ "{:,}".format(stats.today_steps) }} today{% elif stats.avg_steps_7d %}7d avg {{ "{:,}".format(stats.avg_steps_7d) }}{% endif %}
+      </a>
+      {% endif %}
+      {% if stats.today_sleep is not none or stats.avg_sleep_7d is not none %}
+      <a href="{{ url_for('wearables') }}" class="home-wearable-pill">
+        Sleep {% if stats.today_sleep is not none %}{{ stats.today_sleep }}h{% elif stats.avg_sleep_7d %}{{ stats.avg_sleep_7d }}h avg{% endif %}
+      </a>
+      {% endif %}
+      {% if stats.today_resting_hr is not none %}
+      <a href="{{ url_for('wearables') }}" class="home-wearable-pill">Resting HR {{ stats.today_resting_hr }} bpm</a>
+      {% endif %}
+      <a href="{{ url_for('wearables') }}" class="home-wearable-pill">Add wearable data</a>
     </div>
-    {% endif %}
+  </section>
+
+  {# Quick actions #}
+  <section class="home-quick-actions">
+    <div class="home-quick-inner">
+      {% if not stats.strava_connected %}
+      <a href="{{ url_for('connect_strava') }}">Connect Strava</a>
+      {% endif %}
+      <a href="{{ url_for('profile') }}">Profile</a>
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('aura') }}">Aura AI</a>
+      <a href="{{ url_for('buddies') }}">Buddies</a>
+    </div>
+  </section>
+  {% endif %}
+
+  {# About teaser at bottom of home #}
+  <section class="home-about-teaser">
+    <div class="home-about-inner">
+      <div>
+        <p class="badge rounded-pill bg-primary mb-2">About</p>
+        <h2 class="h5 mb-2">Why I built TribePlan</h2>
+        <p class="small mb-0 text-muted">
+          TribePlan is my attempt to bring mental, physical, nutritional, and social health into one calm place – after years of
+          juggling separate apps and feeling like I never saw the full picture.
+        </p>
+      </div>
+      <div class="text-end">
+        <a href="{{ url_for('about') }}" class="btn btn-outline-primary btn-sm">Read the full story</a>
+      </div>
+    </div>
+  </section>
 </div>
 {% endblock %}

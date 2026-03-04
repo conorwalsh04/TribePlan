@@ -1,31 +1,219 @@
 {% extends "base.html" %}
 {% block title %}Aura AI | TribePlan{% endblock %}
 {% block content %}
-<div class="overlay-content container">
-  <h2 class="mb-3">Aura AI (Coming Soon)</h2>
-  <p class="text-muted mb-4">
-    Aura AI will act as your personal wellness companion – turning your mood, food, and fitness logs
-    into simple insights and gentle nudges.
-  </p>
-
-  <div class="card mb-4">
-    <div class="card-header">
-      <h5 class="mb-0">Planned features for next iteration</h5>
-    </div>
-    <div class="card-body">
-      <ul class="mb-0">
-        <li><strong>Daily reflections</strong> – short AI prompts based on your recent mood and activity.</li>
-        <li><strong>Pattern spotting</strong> – highlight links between sleep, mood, food, and workouts.</li>
-        <li><strong>Gentle recommendations</strong> – small, achievable suggestions instead of overwhelming plans.</li>
-        <li><strong>Positive reinforcement</strong> – celebrate streaks and small wins automatically.</li>
-      </ul>
-    </div>
+<div class="overlay-content container aura-layout">
+  <div class="tribeplan-hero mb-4">
+    <h1 class="h3 mb-1">Aura AI</h1>
+    <p class="lead mb-1 opacity-90">
+      Your personal wellness companion – turning your mood, food, fitness, and buddies into simple, realistic suggestions.
+    </p>
+    <p class="text-muted small mb-0">
+      Aura is not medical advice. Treat suggestions as gentle coaching and always listen to your body.
+    </p>
   </div>
 
-  <p class="text-muted small">
-    This page is scaffolding only – no AI calls are made yet. The next iteration will wire this up to
-    your existing logs and profile.
-  </p>
+  {% if not openai_configured %}
+    <div class="alert alert-warning">
+      Aura AI is not fully configured. Add an <code>OPENAI_API_KEY</code> (and optional <code>OPENAI_MODEL</code>) to your
+      <code>.env</code> file to enable responses.
+    </div>
+  {% endif %}
+
+  {% if error %}
+    <div class="alert alert-danger mb-3">{{ error }}</div>
+  {% endif %}
+
+  <div class="aura-main-panel">
+  <div class="row g-4 mb-0">
+    <div class="col-lg-5">
+      <div class="card tribeplan-card h-100 aura-summary-card">
+        <div class="card-header">
+          <h5 class="mb-0">Your recent picture</h5>
+        </div>
+        <div class="card-body">
+          {% set p = aura_context.profile or {} %}
+          <dl class="row mb-3">
+            <dt class="col-4 small aura-summary-label">Name</dt>
+            <dd class="col-8">{{ p.name or 'Not set' }}</dd>
+
+            <dt class="col-4 small aura-summary-label">Location</dt>
+            <dd class="col-8">
+              {% if p.city or p.country %}
+                {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}
+              {% else %}
+                Not set
+              {% endif %}
+            </dd>
+
+            <dt class="col-4 small aura-summary-label">Goal</dt>
+            <dd class="col-8 text-capitalize">
+              {{ p.goal_type or 'maintain' }}
+              {% if p.target_weight %}
+                → {{ p.target_weight }} kg
+              {% endif %}
+            </dd>
+
+            <dt class="col-4 small aura-summary-label">Activity level</dt>
+            <dd class="col-8 text-capitalize">{{ p.activity_level or 'not set' }}</dd>
+
+            <dt class="col-4 small aura-summary-label">Buddies</dt>
+            <dd class="col-8">
+              {% if aura_context.buddy_count %}
+                {{ aura_context.buddy_count }} active buddy/buddies
+              {% else %}
+                No buddies yet – try connecting on the Buddies page.
+              {% endif %}
+            </dd>
+          </dl>
+
+          <hr>
+          <p class="aura-summary-section small mb-1">Recent mood</p>
+          {% if aura_context.recent_mood %}
+            {% set last = aura_context.recent_mood[0] %}
+            <p class="mb-1">
+              Last entry: <strong>{{ last.mood }}</strong>/5 on {{ last.date }}{% if last.journal %} – “{{ last.journal }}”{% endif %}
+            </p>
+          {% else %}
+            <p class="text-muted mb-1">No mood logs yet.</p>
+          {% endif %}
+
+          <p class="aura-summary-section small mb-1 mt-3">Recent workouts</p>
+          {% if aura_context.recent_workouts %}
+            <ul class="list-unstyled small mb-0">
+              {% for w in aura_context.recent_workouts[:3] %}
+                <li>• {{ w.date }} – {{ w.exercise }} ({{ w.duration }} mins)</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted small mb-0">No workouts logged yet.</p>
+          {% endif %}
+
+          <p class="aura-summary-section small mb-1 mt-3">Recent calories</p>
+          {% if aura_context.recent_food_days %}
+            <ul class="list-unstyled small mb-0">
+              {% for d in aura_context.recent_food_days[:5] %}
+                <li>• {{ d.date }} – {{ d.calories }} kcal</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted small mb-0">No food logs yet.</p>
+          {% endif %}
+
+          <p class="aura-summary-section small mb-1 mt-3">Wearables</p>
+          {% set ws = aura_context.wearable_summary or {} %}
+          {% if ws.avg_steps is not none or ws.avg_sleep is not none %}
+            <p class="small mb-0">
+              {% if ws.avg_steps is not none %}Avg steps: <strong>{{ ws.avg_steps | int }}</strong>{% endif %}
+              {% if ws.avg_steps is not none and ws.avg_sleep is not none %} · {% endif %}
+              {% if ws.avg_sleep is not none %}Avg sleep: <strong>{{ ws.avg_sleep }}h</strong>{% endif %}
+            </p>
+          {% else %}
+            <p class="text-muted small mb-0">No wearable data yet – add steps/sleep on <a href="{{ url_for('wearables') }}">Wearables</a>.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card tribeplan-card h-100 d-flex flex-column" id="ask-aura-card">
+        <div class="card-header">
+          <h5 class="mb-0">Ask Aura</h5>
+        </div>
+        <div class="card-body d-flex flex-column">
+          <form method="POST" id="aura-form" class="mb-3">
+            <div class="mb-2">
+              <div class="text-muted small mb-1">Quick prompts</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="submit" name="quick_action" value="checkin" class="btn btn-sm btn-outline-primary">
+                  Daily check‑in
+                </button>
+                <button type="submit" name="quick_action" value="workout" class="btn btn-sm btn-outline-primary">
+                  Plan today’s workout
+                </button>
+                <button type="submit" name="quick_action" value="nutrition" class="btn btn-sm btn-outline-primary">
+                  Help with nutrition
+                </button>
+                <button type="submit" name="quick_action" value="sleep" class="btn btn-sm btn-outline-primary">
+                  Better sleep
+                </button>
+                <button type="submit" name="quick_action" value="social" class="btn btn-sm btn-outline-primary">
+                  Social & buddies
+                </button>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="user_prompt" class="form-label text-muted small">Or ask your own question</label>
+              <textarea
+                id="user_prompt"
+                name="user_prompt"
+                rows="4"
+                class="form-control"
+                placeholder="e.g. “I feel low energy after work – what 30-minute plan would you suggest for me today?”"
+              >{{ user_prompt or '' }}</textarea>
+            </div>
+
+            <div class="text-end">
+              <button type="submit" id="aura-submit" class="btn btn-primary" {% if not openai_configured %}disabled{% endif %}>
+                Ask Aura
+              </button>
+            </div>
+          </form>
+
+          <div class="flex-grow-1">
+            <div class="aura-chat">
+              {% if not user_prompt and not assistant_reply %}
+                <div class="aura-message aura-message-aura">
+                  <div class="aura-message-label">Aura</div>
+                  <div class="aura-message-body">
+                    Ask a question or tap a quick prompt to start a conversation. I&apos;ll keep it simple and actionable.
+                  </div>
+                </div>
+              {% else %}
+                {% if user_prompt %}
+                  <div class="aura-message aura-message-user">
+                    <div class="aura-message-label">You</div>
+                    <div class="aura-message-body">{{ user_prompt }}</div>
+                  </div>
+                {% endif %}
+                {% if assistant_reply %}
+                  <div class="aura-message aura-message-aura">
+                    <div class="aura-message-label">Aura</div>
+                    <div class="aura-message-body">
+                      {{ assistant_reply }}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endif %}
+
+              <div id="aura-thinking" class="aura-message aura-message-aura aura-thinking d-none">
+                <div class="aura-message-label">Aura</div>
+                <div class="aura-message-body">Thinking...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
 </div>
+<script>
+(function() {
+  const form = document.getElementById('aura-form');
+  if (!form) return;
+  form.addEventListener('submit', function() {
+    const thinking = document.getElementById('aura-thinking');
+    const btn = document.getElementById('aura-submit');
+    if (thinking) {
+      thinking.classList.remove('d-none');
+    }
+    if (btn && !btn.disabled) {
+      btn.disabled = true;
+      btn.innerText = 'Thinking...';
+    }
+  });
+})();
+</script>
 {% endblock %}
 

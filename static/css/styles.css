@@ -11240,7 +11240,12 @@ footer a:hover, footer a:active, footer a:focus {
   color: #fff !important;
 }
 .tribeplan-pill-cta:hover { opacity: 0.95; color: #fff !important; }
-.tribeplan-pill-logout { color: rgba(255,255,255,0.7) !important; }
+.tribeplan-pill-logout { color: rgba(255,255,255,0.7) !important; border: 1px solid rgba(239,68,68,0.4); }
+.tribeplan-pill-logout:hover {
+  background: #ef4444 !important;
+  color: #fff !important;
+  border-color: #ef4444;
+}
 .dropdown-menu.tribeplan-dropdown {
   background: #1e293b;
   border: 1px solid rgba(255,255,255,0.08);
@@ -11307,3 +11312,469 @@ footer a:hover, footer a:active, footer a:focus {
 .tribeplan-logo-wrap .tribeplan-logo-img {
   display: block;
 }
+
+/* ========== Home page: Apple / Everfit-style full-bleed video sections ========== */
+body.home-body .bg-video {
+  display: none;
+}
+main.home-main {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+}
+
+.home-page {
+  padding: 0;
+}
+
+.home-hero {
+  text-align: center;
+  padding: 4rem 1.5rem 3rem;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  color: #fff;
+}
+
+.home-hero .home-hero-logo {
+  margin-bottom: 1.5rem;
+}
+.home-hero .home-hero-logo img {
+  height: 72px;
+  mix-blend-mode: lighten;
+}
+
+.home-hero h1 {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.home-hero .lead {
+  font-size: 1.2rem;
+  opacity: 0.9;
+  margin-bottom: 2rem;
+  color: rgba(255,255,255,0.9);
+}
+
+.home-hero .home-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.home-hero .home-ctas a {
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.home-hero .home-ctas a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+}
+
+.home-video-section {
+  position: relative;
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.home-video-section .home-video-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.home-video-section .home-video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.home-video-section.home-mood .home-video-overlay {
+  background: linear-gradient(180deg, rgba(88, 28, 135, 0.75) 0%, rgba(15, 23, 42, 0.88) 100%);
+}
+
+.home-video-section.home-fitness .home-video-overlay {
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.7) 0%, rgba(15, 23, 42, 0.88) 100%);
+}
+
+.home-video-section.home-nutrition .home-video-overlay {
+  background: linear-gradient(180deg, rgba(22, 101, 52, 0.7) 0%, rgba(15, 23, 42, 0.88) 100%);
+}
+
+.home-video-section .home-section-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: #fff;
+  padding: 2rem;
+  max-width: 520px;
+}
+
+.home-video-section .home-section-title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+
+.home-video-section .home-section-sub {
+  font-size: 1.05rem;
+  opacity: 0.95;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+  text-shadow: 0 1px 10px rgba(0,0,0,0.2);
+}
+
+.home-video-section .home-section-stat {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.25rem;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+
+.home-video-section .home-section-cta {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.7rem 1.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.95);
+  color: #0f172a;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.home-video-section .home-section-cta:hover {
+  background: #fff;
+  color: #0f172a;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.home-wearables-strip {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+  color: #fff;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.home-wearables-strip .home-wearables-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: center;
+  align-items: center;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.home-wearables-strip .home-wearable-pill {
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 0.6rem 1.2rem;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+.home-wearables-strip .home-wearable-pill:hover {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+
+.home-quick-actions {
+  padding: 2.5rem 1.5rem;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.home-quick-actions .home-quick-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.home-quick-actions a {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  text-decoration: none;
+  background: #fff;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.home-quick-actions a:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  color: #334155;
+}
+
+.home-guest-feature {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: #fff;
+}
+
+.home-guest-feature .home-section-cta {
+  margin-top: 1rem;
+}
+
+.home-about-teaser {
+  padding: 2rem 1.5rem 2.5rem;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+.home-about-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ========== Page heroes with topic video (Mood, Fitness, Nutrition) ========== */
+.page-hero {
+  position: relative;
+  min-height: 42vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin: -1rem -0.5rem 2rem;
+}
+
+.page-hero-video-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.page-hero-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.page-hero-mood .page-hero-overlay {
+  background: linear-gradient(180deg, rgba(88, 28, 135, 0.6) 0%, rgba(15, 23, 42, 0.85) 100%);
+}
+
+.page-hero-fitness .page-hero-overlay {
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.65) 0%, rgba(15, 23, 42, 0.85) 100%);
+}
+
+.page-hero-nutrition .page-hero-overlay {
+  background: linear-gradient(180deg, rgba(22, 101, 52, 0.65) 0%, rgba(15, 23, 42, 0.85) 100%);
+}
+
+.page-hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: #fff;
+  padding: 2rem;
+}
+
+.page-hero-title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.35rem;
+  color: #fff;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.35);
+}
+
+.page-hero-sub {
+  margin: 0;
+  font-size: 1.05rem;
+  opacity: 0.95;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.25);
+}
+
+/* ========== Aura layout ========== */
+.aura-layout {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.aura-main-panel {
+  background: radial-gradient(circle at top left, rgba(59,130,246,0.25), transparent 55%),
+              linear-gradient(135deg, #020617 0%, #020617 50%, #020617 100%);
+  border-radius: 24px;
+  padding: 1.5rem 1.5rem 1.75rem;
+  box-shadow: 0 18px 45px rgba(15,23,42,0.6);
+}
+
+/* ========== Aura chat-style UI ========== */
+.aura-chat {
+  border-radius: 16px;
+  background: radial-gradient(circle at top left, rgba(59,130,246,0.35), transparent 55%),
+              linear-gradient(145deg, #020617 0%, #020617 40%, #020617 100%);
+  padding: 1rem;
+  color: #e5e7eb;
+  min-height: 140px;
+}
+.aura-message {
+  max-width: 100%;
+  margin-bottom: 0.75rem;
+}
+.aura-message-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.1rem;
+  color: #9ca3af;
+}
+.aura-message-body {
+  border-radius: 14px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.aura-message-user .aura-message-body {
+  background: #e5e7eb;
+  color: #111827;
+  border-top-right-radius: 4px;
+}
+.aura-message-aura .aura-message-body {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-top-left-radius: 4px;
+}
+.aura-message-user {
+  text-align: right;
+}
+.aura-message-user .aura-message-label {
+  text-align: right;
+}
+.aura-message-aura {
+  text-align: left;
+}
+.aura-thinking .aura-message-body {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+#ask-aura-card {
+  background: #020617;
+  color: #e5e7eb;
+  border: none;
+}
+#ask-aura-card .card-header {
+  background: transparent;
+  border-bottom: 1px solid rgba(148,163,184,0.35);
+  color: #e5e7eb;
+}
+#ask-aura-card label,
+#ask-aura-card .text-muted {
+  color: #9ca3af !important;
+}
+
+.aura-summary-card {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+}
+.aura-summary-card .card-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  color: #111827;
+}
+.aura-summary-card .text-muted {
+  color: #4b5563 !important;
+}
+.aura-summary-label {
+  color: #4b5563 !important;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.aura-summary-section {
+  color: #111827 !important;
+}
+
+/* ========== About page ========== */
+.about-hero-video {
+  position: relative;
+  min-height: 46vh;
+  overflow: hidden;
+  border-radius: 0 0 24px 24px;
+}
+.about-hero-video-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.about-hero-video-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(15,23,42,0.2), transparent 55%),
+              linear-gradient(180deg, rgba(15,23,42,0.7) 0%, rgba(15,23,42,0.95) 100%);
+}
+.about-hero-video-content {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 3.25rem 1.5rem 2.75rem;
+  text-align: left;
+  color: #f9fafb;
+}
+.about-hero-video-content h1 {
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.6rem;
+}
+.about-hero-video-content .lead {
+  font-size: 1.05rem;
+  opacity: 0.95;
+}
+.about-hero-video-content .small {
+  opacity: 0.8;
+}
+
+.about-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.9rem;
+}
+.about-photo-item img {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  border-radius: 16px;
+}
+

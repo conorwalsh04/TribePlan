@@ -2,12 +2,17 @@
 {% block title %}Mood Check-In | TribePlan{% endblock %}
 
 {% block content %}
-<!-- Video Background -->
-<div class="bg-video">
-    <video autoplay muted loop>
-        <source src="{{ url_for('static', filename='img/demo-screen.mp4') }}" type="video/mp4">
+<!-- Mood hero with video at top (same style as Fitness / Nutrition pages) -->
+<section class="page-hero page-hero-video page-hero-mood">
+    <video class="page-hero-video-bg" autoplay muted loop playsinline>
+        <source src="{{ url_for('static', filename=topic_video_mood_page) }}" type="video/mp4">
     </video>
-</div>
+    <div class="page-hero-overlay" aria-hidden="true"></div>
+    <div class="page-hero-content">
+        <h1 class="page-hero-title">Mood</h1>
+        <p class="page-hero-sub">Check in with how you feel and spot patterns over time.</p>
+    </div>
+</section>
 
 <!-- Mood Form + History -->
 <div class="overlay-content container">
@@ -76,9 +81,24 @@
             const opts = { responsive: true, plugins: { legend: { display: false } },
                 scales: { x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6c757d' } },
                     y: { min: 1, max: 5, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6c757d' } } } };
-            new Chart(document.getElementById('moodChart'),{
-                type:'line',
-                data:{labels:d.labels,datasets:[{label:'Mood (1-5)',data:d.mood,borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.12)',fill:true,tension:0.4,borderWidth:2,pointRadius:4,pointBackgroundColor:'#6366f1'}]},
+            new Chart(document.getElementById('moodChart'), {
+                type: 'line',
+                data: {
+                    labels: d.labels,
+                    datasets: [{
+                        label: 'Mood (1-5)',
+                        data: d.mood,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99,102,241,0.12)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: '#6366f1',
+                        spanGaps: true
+                    }]
+                },
                 options: opts
             });
         }

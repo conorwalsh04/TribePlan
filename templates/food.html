@@ -2,6 +2,18 @@
 {% block title %}Food Tracker | TribePlan{% endblock %}
 
 {% block content %}
+<!-- Nutrition-themed hero with background video (use nutrition-bg.mp4 in static/img/ for food clip) -->
+<section class="page-hero page-hero-video page-hero-nutrition">
+    <video class="page-hero-video-bg" autoplay muted loop playsinline>
+        <source src="{{ url_for('static', filename=topic_video_nutrition_page) }}" type="video/mp4">
+    </video>
+    <div class="page-hero-overlay" aria-hidden="true"></div>
+    <div class="page-hero-content">
+        <h1 class="page-hero-title">Nutrition</h1>
+        <p class="page-hero-sub">Track meals, hit your targets, and stay balanced.</p>
+    </div>
+</section>
+
 <div class="overlay-content container">
     <h2 class="text-center mb-4">Food Tracker</h2>
 

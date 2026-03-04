@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Buddy profile | TribePlan{% endblock %}
+{% block content %}
+<div class="overlay-content container">
+  <div class="tribeplan-hero mb-4">
+    <h1 class="h3 mb-1">{{ profile.name or 'TribePlan member' }}</h1>
+    <p class="lead mb-0 opacity-90">
+      {{ profile.goals or 'Working on their health with TribePlan.' }}
+    </p>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
+      <div class="card tribeplan-card h-100">
+        <div class="card-header">
+          <h5 class="mb-0">Profile</h5>
+        </div>
+        <div class="card-body">
+          <dl class="row mb-0">
+            <dt class="col-4 text-muted small">Name</dt>
+            <dd class="col-8">{{ profile.name or 'Not set' }}</dd>
+
+            <dt class="col-4 text-muted small">Location</dt>
+            <dd class="col-8">
+              {% if profile.city or profile.country %}
+                {{ profile.city or '' }}{% if profile.country %}, {{ profile.country }}{% endif %}
+              {% else %}
+                Not set
+              {% endif %}
+            </dd>
+
+            <dt class="col-4 text-muted small">Goal type</dt>
+            <dd class="col-8 text-capitalize">
+              {{ profile.goal_type or 'Not set' }}
+            </dd>
+
+            <dt class="col-4 text-muted small">Activity level</dt>
+            <dd class="col-8 text-capitalize">
+              {{ profile.activity_level or 'Not set' }}
+            </dd>
+
+            <dt class="col-4 text-muted small">About / goals</dt>
+            <dd class="col-8">
+              {{ profile.goals or 'No description yet.' }}
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card tribeplan-card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Connection</h5>
+          <a href="{{ url_for('buddies') }}" class="btn btn-sm btn-outline-secondary">Back to buddies</a>
+        </div>
+        <div class="card-body">
+          {% if link_status == 'accepted' %}
+            <p class="text-muted mb-3">You’re already buddies. You can also plan a shared session from the main buddies page.</p>
+            <form method="POST" action="{{ url_for('buddies_remove', other_uid=other_uid) }}" onsubmit="return confirm('Remove this buddy?');">
+              <button type="submit" class="btn btn-outline-danger">Remove buddy</button>
+            </form>
+          {% elif link_status == 'pending_out' %}
+            <p class="text-muted mb-3">Buddy request sent. You’ll see it under “Requests you’ve sent”.</p>
+            <form method="POST" action="{{ url_for('buddies_decline', other_uid=other_uid) }}">
+              <button type="submit" class="btn btn-outline-secondary">Cancel request</button>
+            </form>
+          {% elif link_status == 'pending_in' %}
+            <p class="text-muted mb-3">This person has requested to be your buddy.</p>
+            <div class="d-flex gap-2">
+              <form method="POST" action="{{ url_for('buddies_accept', other_uid=other_uid) }}">
+                <button type="submit" class="btn btn-success">Accept request</button>
+              </form>
+              <form method="POST" action="{{ url_for('buddies_decline', other_uid=other_uid) }}">
+                <button type="submit" class="btn btn-outline-secondary">Decline</button>
+              </form>
+            </div>
+          {% else %}
+            <p class="text-muted mb-3">
+              You’re not buddies yet. If their goals and location look like a good fit, send a request.
+            </p>
+            <form method="POST" action="{{ url_for('buddies_request', other_uid=other_uid) }}">
+              <button type="submit" class="btn btn-primary">Send buddy request</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

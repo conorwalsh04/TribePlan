@@ -47,6 +47,10 @@ OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 # Google Maps JavaScript API (for buddies map)
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
+# OpenAI for Aura AI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
 # Activity level multipliers for TDEE (BMR * multiplier)
 ACTIVITY_MULTIPLIERS = {
     "sedentary": 1.2,    # little/no exercise
@@ -56,6 +60,41 @@ ACTIVITY_MULTIPLIERS = {
     "very_active": 1.9,  # heavy exercise
 }
 
+# Topic videos: Mood/Mood2, Fitness/Fitness2, Nutrition/Nutrition2 are all different clips.
+# We use one on the Home page and the other on the dedicated page so all six are used.
+TOPIC_VIDEO_CANDIDATES = {
+    "mood_home": ["img/Mood.mp4", "img/Mood2.mp4", "img/mood-bg.mp4", "img/demo-screen.mp4"],
+    "mood_page": ["img/Mood2.mp4", "img/Mood.mp4", "img/mood-bg.mp4", "img/demo-screen.mp4"],
+    "fitness_home": ["img/Fitness.mp4", "img/Fitness2.mp4", "img/fitness-bg.mp4", "img/demo-screen.mp4"],
+    "fitness_page": ["img/Fitness2.mp4", "img/Fitness.mp4", "img/fitness-bg.mp4", "img/demo-screen.mp4"],
+    "nutrition_home": ["img/Nutrition.mp4", "img/Nutrition2.mp4", "img/nutrition-bg.mp4", "img/demo-screen.mp4"],
+    "nutrition_page": ["img/Nutrition2.mp4", "img/Nutrition.mp4", "img/nutrition-bg.mp4", "img/demo-screen.mp4"],
+}
+
+
+def _topic_video_path(key: str) -> str:
+    """Return static path for topic video (first existing candidate in list)."""
+    candidates = TOPIC_VIDEO_CANDIDATES.get(key, ["img/demo-screen.mp4"])
+    base = app.static_folder or os.path.join(app.root_path, "static")
+    for path in candidates:
+        if os.path.isfile(os.path.join(base, path)):
+            return path
+    return candidates[-1]
+
+
+@app.context_processor
+def inject_topic_videos():
+    """Make topic video paths available in all templates. Home and page each use a different clip."""
+    return {
+        "topic_video_mood": _topic_video_path("mood_home"),      # Home mood section
+        "topic_video_mood_page": _topic_video_path("mood_page"), # Mood page background
+        "topic_video_fitness": _topic_video_path("fitness_home"),
+        "topic_video_fitness_page": _topic_video_path("fitness_page"),
+        "topic_video_nutrition": _topic_video_path("nutrition_home"),
+        "topic_video_nutrition_page": _topic_video_path("nutrition_page"),
+    }
+
+
 # Print API config status on startup (for debugging)
 print("=" * 50)
 print("API Configuration Status:")
@@ -64,6 +103,7 @@ print(f"  STRAVA_CLIENT_SECRET: {'SET' if STRAVA_CLIENT_SECRET else 'MISSING'}")
 print(f"  OPENWEATHER_API_KEY: {'SET' if OPENWEATHER_API_KEY else 'MISSING'}")
 print(f"  USDA_FDC_API_KEY: {'SET' if USDA_FDC_API_KEY else 'MISSING'} (nutrition)")
 print(f"  GOOGLE_MAPS_API_KEY: {'SET' if GOOGLE_MAPS_API_KEY else 'MISSING'} (buddies map)")
+print(f"  OPENAI_API_KEY: {'SET' if OPENAI_API_KEY else 'MISSING'} (Aura AI)")
 print("=" * 50)
 
 
@@ -169,7 +209,7 @@ def register():
             print("Failed to write user doc:", e)
 
 
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("home"))
 
     return render_template("register.html")
 
@@ -197,7 +237,7 @@ def login():
         session["user_id"] = uid
         session["user_email"] = email
 
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("home"))
 
     return render_template("login.html")
 
@@ -447,8 +487,8 @@ def strava_disconnect():
 
 @app.route('/')
 def root():
-    """Redirect root to login page"""
-    return redirect(url_for('login'))
+    """Show home page first (summary for logged-in users, welcome for guests)."""
+    return redirect(url_for('home'))
 
 
 @app.route('/home', methods=['GET', 'POST'], endpoint='home')
@@ -466,7 +506,12 @@ def home_view():
         "total_calories": 0,
         "recent_mood": None,
         "recent_workout": None,
-        "strava_connected": False
+        "strava_connected": False,
+        "today_steps": None,
+        "today_sleep": None,
+        "today_resting_hr": None,
+        "avg_steps_7d": None,
+        "avg_sleep_7d": None,
     }
     
     profile = {}
@@ -531,6 +576,75 @@ def home_view():
         
         # Check Strava connection
         stats["strava_connected"] = is_strava_connected()
+
+        # Wearables summary (today + 7-day averages)
+        from collections import defaultdict
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        since_7d = (datetime.now() - timedelta(days=7)).date()
+        steps_by_day = defaultdict(int)
+        sleep_by_day = defaultdict(list)
+        hr_by_day = defaultdict(list)
+        for d in col(uid, "wearable_logs").limit(80).stream():
+            entry = d.to_dict() or {}
+            ds = entry.get("date")
+            if isinstance(ds, datetime):
+                ds = ds.strftime("%Y-%m-%d") if hasattr(ds, "strftime") else str(ds)[:10]
+            else:
+                ds = str(ds)[:10] if ds else ""
+            if not ds or len(ds) < 10:
+                continue
+            day = datetime.strptime(ds, "%Y-%m-%d").date()
+            if day < since_7d:
+                continue
+            try:
+                s = entry.get("steps")
+                if s is not None:
+                    steps_by_day[ds] += int(s)
+            except (TypeError, ValueError):
+                pass
+            try:
+                sl = entry.get("sleep_hours")
+                if sl is not None:
+                    sleep_by_day[ds].append(float(sl))
+            except (TypeError, ValueError):
+                pass
+            try:
+                hr = entry.get("resting_hr")
+                if hr is not None:
+                    hr_by_day[ds].append(int(hr))
+            except (TypeError, ValueError):
+                pass
+        stats["today_steps"] = steps_by_day.get(today_str)
+        if stats["today_steps"] is None and steps_by_day:
+            # Show most recent day if today missing
+            latest = max(steps_by_day.keys()) if steps_by_day else None
+            stats["today_steps"] = steps_by_day.get(latest)
+        if sleep_by_day.get(today_str):
+            stats["today_sleep"] = round(sum(sleep_by_day[today_str]) / len(sleep_by_day[today_str]), 1)
+        else:
+            # Last night = yesterday or most recent
+            for dk in sorted(sleep_by_day.keys(), reverse=True)[:1]:
+                vals = sleep_by_day[dk]
+                if vals:
+                    stats["today_sleep"] = round(sum(vals) / len(vals), 1)
+                    break
+        if hr_by_day.get(today_str):
+            vals = hr_by_day[today_str]
+            stats["today_resting_hr"] = round(sum(vals) / len(vals), 0)
+        elif hr_by_day:
+            dk = max(hr_by_day.keys())
+            vals = hr_by_day[dk]
+            if vals:
+                stats["today_resting_hr"] = round(sum(vals) / len(vals), 0)
+        if steps_by_day:
+            total_steps = sum(steps_by_day.values())
+            stats["avg_steps_7d"] = round(total_steps / len(steps_by_day), 0)
+        if sleep_by_day:
+            all_sleep = []
+            for v in sleep_by_day.values():
+                all_sleep.extend(v)
+            if all_sleep:
+                stats["avg_sleep_7d"] = round(sum(all_sleep) / len(all_sleep), 1)
     
     return render_template("home.html", 
                          is_logged_in=is_logged_in, 
@@ -916,7 +1030,6 @@ def calculate_nutrition_goals(profile: dict):
 
 
 @app.route("/food/nutrition", methods=["POST"])
-@app.route("/food/nutritionix", methods=["POST"])
 def food_nutrition():
     """
     Use USDA FoodData Central to estimate calories and macros for a meal.
@@ -1222,6 +1335,171 @@ def fitness_delete(log_id):
     return redirect(url_for('fitness'))
 
 
+# ===================== WEARABLES / HEALTH DATA =====================
+
+def _wearable_chart_data(uid, days_back=14):
+    """Aggregate wearable_logs by day for steps, sleep, resting_hr. Returns same shape as _get_chart_data date keys/labels."""
+    from collections import defaultdict
+    today = datetime.now().date()
+    date_keys = [(today - timedelta(days=days_back - 1 - i)).strftime("%Y-%m-%d") for i in range(days_back)]
+    date_labels = [(today - timedelta(days=days_back - 1 - i)).strftime("%m/%d") for i in range(days_back)]
+    steps_by_day = defaultdict(int)
+    sleep_by_day = defaultdict(list)  # list of values per day
+    hr_by_day = defaultdict(list)
+    for d in col(uid, "wearable_logs").stream():
+        entry = d.to_dict() or {}
+        ds = entry.get("date")
+        if isinstance(ds, datetime):
+            ds = _to_date_str(ds)
+        if not ds or len(ds) < 10:
+            continue
+        ds = str(ds)[:10]
+        try:
+            s = entry.get("steps")
+            if s is not None:
+                steps_by_day[ds] += int(s)
+        except (TypeError, ValueError):
+            pass
+        try:
+            sl = entry.get("sleep_hours")
+            if sl is not None:
+                sleep_by_day[ds].append(float(sl))
+        except (TypeError, ValueError):
+            pass
+        try:
+            hr = entry.get("resting_hr")
+            if hr is not None:
+                hr_by_day[ds].append(int(hr))
+        except (TypeError, ValueError):
+            pass
+    steps_data = [steps_by_day.get(dk, 0) for dk in date_keys]
+    sleep_data = []
+    for dk in date_keys:
+        vals = sleep_by_day.get(dk, [])
+        sleep_data.append(round(sum(vals) / len(vals), 1) if vals else None)
+    hr_data = []
+    for dk in date_keys:
+        vals = hr_by_day.get(dk, [])
+        hr_data.append(round(sum(vals) / len(vals), 0) if vals else None)
+    return {
+        "labels": date_labels,
+        "date_keys": date_keys,
+        "steps": steps_data,
+        "sleep": sleep_data,
+        "resting_hr": hr_data,
+        "days": days_back,
+    }
+
+
+@app.route("/wearables", methods=["GET", "POST"])
+def wearables():
+    """Wearable / health data: log steps, sleep, resting HR. Supports manual entry and future device sync."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    if request.method == "POST":
+        date_str = (request.form.get("date") or "").strip() or datetime.now().strftime("%Y-%m-%d")
+        steps_raw = request.form.get("steps", "").strip()
+        sleep_raw = request.form.get("sleep_hours", "").strip()
+        resting_hr_raw = request.form.get("resting_hr", "").strip()
+        active_mins_raw = request.form.get("active_minutes", "").strip()
+        notes = (request.form.get("notes") or "").strip()[:500]
+        source = (request.form.get("source") or "manual").strip() or "manual"
+
+        steps = None
+        if steps_raw:
+            try:
+                steps = max(0, int(steps_raw))
+            except (TypeError, ValueError):
+                pass
+        sleep_hours = None
+        if sleep_raw:
+            try:
+                sleep_hours = max(0.0, min(24.0, float(sleep_raw)))
+            except (TypeError, ValueError):
+                pass
+        resting_hr = None
+        if resting_hr_raw:
+            try:
+                resting_hr = max(30, min(120, int(resting_hr_raw)))
+            except (TypeError, ValueError):
+                pass
+        active_minutes = None
+        if active_mins_raw:
+            try:
+                active_minutes = max(0, int(active_mins_raw))
+            except (TypeError, ValueError):
+                pass
+
+        if steps is None and sleep_hours is None and resting_hr is None and active_minutes is None:
+            flash("Add at least one value (steps, sleep, heart rate, or active minutes).", "error")
+            return redirect(url_for("wearables"))
+
+        entry = {
+            "date": date_str,
+            "created_at": datetime.now(timezone.utc),
+            "source": source,
+            "notes": notes or None,
+        }
+        if steps is not None:
+            entry["steps"] = steps
+        if sleep_hours is not None:
+            entry["sleep_hours"] = sleep_hours
+        if resting_hr is not None:
+            entry["resting_hr"] = resting_hr
+        if active_minutes is not None:
+            entry["active_minutes"] = active_minutes
+
+        col(uid, "wearable_logs").add(entry)
+        flash("Wearable data saved.", "success")
+        return redirect(url_for("wearables"))
+
+    # GET: load recent entries and chart data (sort in memory to avoid composite index)
+    logs = []
+    for d in col(uid, "wearable_logs").limit(100).stream():
+        data = d.to_dict() or {}
+        data["id"] = d.id
+        data["_created"] = data.get("created_at") or datetime.min.replace(tzinfo=timezone.utc)
+        logs.append(data)
+    logs.sort(key=lambda x: x["_created"], reverse=True)
+    for L in logs:
+        L.pop("_created", None)
+    logs = logs[:60]
+    days_param = request.args.get("days", "14")
+    chart_days = int(days_param) if days_param in ("7", "14", "30") else 14
+    chart_data = _wearable_chart_data(uid, chart_days)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    return render_template(
+        "wearables.html",
+        logs=logs,
+        chart_data=chart_data,
+        strava_connected=is_strava_connected(),
+        today_str=today_str,
+    )
+
+
+@app.route("/wearables/delete/<log_id>", methods=["POST"])
+def wearables_delete(log_id):
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+    col(uid, "wearable_logs").document(log_id).delete()
+    flash("Entry removed.", "success")
+    return redirect(url_for("wearables"))
+
+
+@app.route("/api/wearables/chart")
+def api_wearables_chart():
+    """JSON chart data for steps, sleep, resting HR over the last N days."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return {"error": "Not logged in"}, 401
+    days_param = request.args.get("days", "14")
+    days_back = int(days_param) if days_param in ("7", "14", "30") else 14
+    return _wearable_chart_data(uid, days_back)
+
+
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
     uid, redirect_resp = require_login()
@@ -1369,6 +1647,12 @@ def dashboard():
         chart_data=chart_data,
         chart_days=chart_days,
     )
+
+
+@app.route("/about")
+def about():
+    """About page: story, mission, and pillars for TribePlan."""
+    return render_template("about.html")
 
 
 # ===================== WEATHER API (OpenWeatherMap) =====================
@@ -1606,6 +1890,289 @@ def _get_chart_data(uid, days_back=14):
     }
 
 
+def _get_aura_context(uid, days_back=14):
+    """
+    Collect a compact view of the user's recent data for Aura AI.
+    Returns a dict with profile, recent_mood, recent_workouts, recent_food_days, and buddy_count.
+    """
+    user_doc = db.collection("users").document(uid).get()
+    profile = user_doc.to_dict() if user_doc.exists else {}
+
+    today = datetime.now().date()
+    since = datetime.now() - timedelta(days=days_back)
+
+    # Recent mood entries
+    recent_mood = []
+    mood_query = (
+        col(uid, "mood_logs")
+        .order_by("date", direction=firestore.Query.DESCENDING)
+        .limit(20)
+    )
+    for d in mood_query.stream():
+        data = d.to_dict() or {}
+        dt = data.get("date")
+        if hasattr(dt, "date") and dt.date() < since.date():
+            continue
+        recent_mood.append(
+            {
+                "date": _to_date_str(dt),
+                "mood": data.get("mood"),
+                "journal": (data.get("journal") or "")[:200],
+            }
+        )
+
+    # Recent workouts
+    recent_workouts = []
+    fit_query = (
+        col(uid, "fitness_logs")
+        .order_by("date", direction=firestore.Query.DESCENDING)
+        .limit(20)
+    )
+    for d in fit_query.stream():
+        data = d.to_dict() or {}
+        dt = data.get("date")
+        if hasattr(dt, "date") and dt.date() < since.date():
+            continue
+        recent_workouts.append(
+            {
+                "date": _to_date_str(dt),
+                "exercise": data.get("exercise"),
+                "duration": data.get("duration"),
+                "notes": (data.get("notes") or "")[:160],
+            }
+        )
+
+    # Food: aggregate by day (calories)
+    from collections import defaultdict
+
+    food_by_day = defaultdict(int)
+    food_query = (
+        col(uid, "food_logs")
+        .order_by("date", direction=firestore.Query.DESCENDING)
+        .limit(60)
+    )
+    for d in food_query.stream():
+        data = d.to_dict() or {}
+        dt = data.get("date")
+        ds = _to_date_str(dt)
+        if not ds:
+            continue
+        day = datetime.strptime(ds, "%Y-%m-%d").date()
+        if day < since.date():
+            continue
+        try:
+            food_by_day[ds] += int(data.get("calories", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+
+    recent_food_days = [
+        {"date": ds, "calories": cal}
+        for ds, cal in sorted(food_by_day.items(), reverse=True)
+    ][:14]
+
+    # Buddy count (social health layer)
+    buddy_count = 0
+    try:
+        for d in col(uid, "buddy_links").stream():
+            data = d.to_dict() or {}
+            if data.get("status") == "accepted":
+                buddy_count += 1
+    except Exception:
+        buddy_count = 0
+
+    # Wearable summary (last 7 days: steps, sleep)
+    from collections import defaultdict
+    wearable_steps_by_day = defaultdict(int)
+    wearable_sleep_by_day = defaultdict(list)
+    for d in col(uid, "wearable_logs").limit(80).stream():
+        data = d.to_dict() or {}
+        ds = data.get("date")
+        if isinstance(ds, datetime):
+            ds = _to_date_str(ds)
+        if not ds or len(str(ds)) < 10:
+            continue
+        ds = str(ds)[:10]
+        day = datetime.strptime(ds, "%Y-%m-%d").date()
+        if day < since.date():
+            continue
+        try:
+            s = data.get("steps")
+            if s is not None:
+                wearable_steps_by_day[ds] += int(s)
+        except (TypeError, ValueError):
+            pass
+        try:
+            sl = data.get("sleep_hours")
+            if sl is not None:
+                wearable_sleep_by_day[ds].append(float(sl))
+        except (TypeError, ValueError):
+            pass
+    avg_steps = None
+    if wearable_steps_by_day:
+        total = sum(wearable_steps_by_day.values())
+        avg_steps = round(total / len(wearable_steps_by_day), 0)
+    avg_sleep = None
+    if wearable_sleep_by_day:
+        all_vals = []
+        for v in wearable_sleep_by_day.values():
+            all_vals.extend(v)
+        if all_vals:
+            avg_sleep = round(sum(all_vals) / len(all_vals), 1)
+    wearable_summary = {"avg_steps": avg_steps, "avg_sleep": avg_sleep}
+
+    return {
+        "profile": profile,
+        "recent_mood": recent_mood,
+        "recent_workouts": recent_workouts,
+        "recent_food_days": recent_food_days,
+        "buddy_count": buddy_count,
+        "wearable_summary": wearable_summary,
+        "today": today.strftime("%Y-%m-%d"),
+    }
+
+
+def _build_aura_system_prompt():
+    """System prompt for Aura AI assistant."""
+    return (
+        "You are Aura, a warm, practical wellness coach inside the TribePlan app. "
+        "You focus on small, realistic actions for physical, nutritional, mental, and social health. "
+        "You never give medical diagnoses. You keep answers concise, friendly, and concrete.\n\n"
+        "Formatting: Use plain text only. Do not use Markdown (no ** for bold, no ## headers). "
+        "Use a regular hyphen - instead of em dashes. Use simple bullet points with - or *.\n\n"
+        "Guidelines:\n"
+        "- Prioritise safety and gradual progress.\n"
+        "- Emphasise habits over perfection.\n"
+        "- When suggesting workouts, favour 10-45 minute sessions and mention intensity.\n"
+        "- When talking about food, avoid strict rules; talk about balance, protein, and fibre.\n"
+        "- Encourage social health by suggesting using workout buddies when relevant.\n"
+        "- If data is missing, make reasonable generic suggestions and gently invite the user to log more.\n"
+        "- If the user asks a non-health question, answer briefly or redirect back to wellness.\n"
+        "- Always end with 2-4 short, actionable bullet points they can do in the next 24 hours."
+    )
+
+
+def _format_aura_context_for_llm(ctx: dict) -> str:
+    """Turn the structured context into a compact text summary for the LLM."""
+    profile = ctx.get("profile") or {}
+    lines = []
+    lines.append(f"Date today: {ctx.get('today')}")
+    lines.append(
+        "Profile: "
+        f"name={profile.get('name') or 'Unknown'}, "
+        f"age={profile.get('age') or 'Unknown'}, "
+        f"gender={profile.get('gender') or 'Unknown'}, "
+        f"city={profile.get('city') or 'Unknown'}, "
+        f"country={profile.get('country') or 'Unknown'}."
+    )
+    lines.append(
+        "Goals: "
+        f"goal_type={profile.get('goal_type') or 'maintain'}, "
+        f"target_weight={profile.get('target_weight') or 'not set'}, "
+        f"user_goals_text={profile.get('goals') or 'not provided'}."
+    )
+    lines.append(f"Accepted buddies (social connections): {ctx.get('buddy_count', 0)}")
+
+    # Mood
+    moods = ctx.get("recent_mood") or []
+    if moods:
+        last = moods[0]
+        last_mood = last.get("mood")
+        last_note = last.get("journal") or ""
+        mood_vals = [m.get("mood") for m in moods if m.get("mood") is not None]
+        avg = round(sum(mood_vals) / len(mood_vals), 2) if mood_vals else "n/a"
+        lines.append(
+            f"Recent mood: last={last_mood} on {last.get('date')}, "
+            f"average_over_{len(mood_vals)}_entries={avg}. "
+            f"Last mood note (truncated): {last_note!r}"
+        )
+    else:
+        lines.append("Recent mood: no mood logs available.")
+
+    # Workouts
+    workouts = ctx.get("recent_workouts") or []
+    if workouts:
+        lines.append("Recent workouts (most recent first, up to 5):")
+        for w in workouts[:5]:
+            lines.append(
+                f"- {w.get('date')}: {w.get('exercise')} for {w.get('duration')} minutes; "
+                f"notes={w.get('notes')!r}"
+            )
+    else:
+        lines.append("Recent workouts: none logged.")
+
+    # Food
+    food_days = ctx.get("recent_food_days") or []
+    if food_days:
+        lines.append("Recent daily calories (most recent first, up to 7 days):")
+        for d in food_days[:7]:
+            lines.append(f"- {d['date']}: {d['calories']} kcal")
+    else:
+        lines.append("Recent daily calories: no food logs.")
+
+    # Wearables
+    ws = ctx.get("wearable_summary") or {}
+    if ws.get("avg_steps") is not None or ws.get("avg_sleep") is not None:
+        parts = []
+        if ws.get("avg_steps") is not None:
+            parts.append(f"avg steps (recent days)={int(ws['avg_steps'])}")
+        if ws.get("avg_sleep") is not None:
+            parts.append(f"avg sleep (hours)={ws['avg_sleep']}")
+        lines.append("Wearable data (recent): " + ", ".join(parts) + ".")
+    else:
+        lines.append("Wearable data: none logged.")
+
+    return "\n".join(lines)
+
+
+def _sanitize_aura_reply(text: str) -> str:
+    """Make Aura replies app-friendly: remove Markdown bold (**) and em dashes."""
+    if not text or not isinstance(text, str):
+        return text
+    # Remove Markdown bold markers
+    s = text.replace("**", "")
+    # Replace em dash with regular hyphen for cleaner in-app display
+    s = s.replace("\u2014", " - ").replace("\u2013", " - ")  # em dash, en dash
+    return s.strip()
+
+
+def _call_openai_chat(messages):
+    """Call OpenAI's chat completions API for Aura. Returns (text, error)."""
+    if not OPENAI_API_KEY:
+        return None, "Aura AI is not configured yet (OPENAI_API_KEY is missing)."
+
+    try:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": OPENAI_MODEL,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 600,
+        }
+        resp = requests.post(url, headers=headers, json=payload, timeout=20)
+        if resp.status_code != 200:
+            try:
+                data = resp.json()
+                msg = data.get("error", {}).get("message", resp.text)
+            except Exception:
+                msg = resp.text
+            return None, f"OpenAI API error: {msg}"
+        data = resp.json()
+        content = (
+            data.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+        )
+        if not content:
+            return None, "Aura AI returned an empty response."
+        return content.strip(), None
+    except Exception as e:
+        return None, f"Error calling OpenAI: {e}"
+
+
 @app.route("/api/charts")
 def api_charts():
     """Return chart data for mood, food, and fitness. Query param: days=7|14|30 (default 14)."""
@@ -1638,14 +2205,68 @@ def dashboard_widgets():
     }
 
 
-@app.route("/aura")
+@app.route("/aura", methods=["GET", "POST"])
 def aura():
-    """Aura AI scaffolding page (coming next iteration)."""
+    """Aura AI: personalised wellness prompts and insights."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
-    # In future: use recent mood/food/fitness data to generate AI insights.
-    return render_template("aura.html")
+
+    ctx = _get_aura_context(uid)
+    assistant_reply = None
+    error = None
+    user_prompt = ""
+    quick_action = None
+
+    if request.method == "POST":
+        user_prompt = (request.form.get("user_prompt") or "").strip()
+        quick_action = (request.form.get("quick_action") or "").strip() or None
+
+        # If a quick action was pressed, use a sensible default prompt when textarea is empty
+        if quick_action and not user_prompt:
+            if quick_action == "checkin":
+                user_prompt = "Give me a short daily check-in based on my recent logs and suggest 3 tiny wins I can aim for today."
+            elif quick_action == "workout":
+                user_prompt = "Design a realistic workout plan for the next 24 hours based on my recent activity."
+            elif quick_action == "nutrition":
+                user_prompt = "Look at my recent calories and goals and suggest gentle nutrition tweaks for today."
+            elif quick_action == "sleep":
+                user_prompt = "Help me improve my sleep habits based on my recent mood and activity."
+            elif quick_action == "social":
+                user_prompt = "Suggest ways I can use my buddies and social activities to support my health this week."
+
+        if not user_prompt:
+            error = "Ask Aura something or choose a quick prompt."
+        else:
+            system_prompt = _build_aura_system_prompt()
+            context_text = _format_aura_context_for_llm(ctx)
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": (
+                        "Here is my recent TribePlan data:\n\n"
+                        f"{context_text}\n\n"
+                        "Now here is my request for Aura:\n"
+                        f"{user_prompt}"
+                    ),
+                },
+            ]
+            assistant_reply, api_err = _call_openai_chat(messages)
+            if api_err:
+                error = api_err
+            elif assistant_reply:
+                assistant_reply = _sanitize_aura_reply(assistant_reply)
+
+    return render_template(
+        "aura.html",
+        aura_context=ctx,
+        assistant_reply=assistant_reply,
+        user_prompt=user_prompt,
+        quick_action=quick_action,
+        error=error,
+        openai_configured=bool(OPENAI_API_KEY),
+    )
 
 
 @app.route("/buddies")
@@ -1699,22 +2320,133 @@ def buddies():
     incoming_requests = _build_items(pending_in_uids)
     outgoing_requests = _build_items(pending_out_uids)
 
-    # Suggested buddies: same country (if set), excluding self and already linked users
+    # Suggested buddies: compatibility-based matching using location, goals, and activity level
     suggestions = []
     seen = {uid} | all_linked_uids
     users_ref = db.collection("users")
-    country = profile.get("country")
+
+    # Narrow search by country first if the user has set it
+    country = (profile or {}).get("country")
     if country:
         users_ref = users_ref.where("country", "==", country)
+
+    def _compatibility_score(my_profile, other_profile):
+        """Simple compatibility score based on location, goals, and activity level."""
+        if not other_profile:
+            return 0
+
+        score = 0
+        reasons = []
+
+        my_city = (my_profile or {}).get("city", "").strip().lower()
+        my_country = (my_profile or {}).get("country", "").strip().lower()
+        my_goal_type = (my_profile or {}).get("goal_type", "").strip().lower()
+        my_activity = (my_profile or {}).get("activity_level", "").strip().lower()
+        my_goals_text = (my_profile or {}).get("goals", "").strip().lower()
+
+        other_city = (other_profile or {}).get("city", "").strip().lower()
+        other_country = (other_profile or {}).get("country", "").strip().lower()
+        other_goal_type = (other_profile or {}).get("goal_type", "").strip().lower()
+        other_activity = (other_profile or {}).get("activity_level", "").strip().lower()
+        other_goals_text = (other_profile or {}).get("goals", "").strip().lower()
+
+        # Location – strongest signal for in‑person workouts
+        if my_city and other_city and my_city == other_city:
+            score += 6
+            reasons.append("Same city")
+        elif my_country and other_country and my_country == other_country:
+            score += 3
+            reasons.append("Same country")
+
+        # Goal type (lose / maintain / gain)
+        if my_goal_type and other_goal_type and my_goal_type == other_goal_type:
+            score += 3
+            reasons.append("Similar goals")
+
+        # Activity level / fitness level
+        if my_activity and other_activity and my_activity == other_activity:
+            score += 2
+            reasons.append("Similar activity level")
+
+        # Free‑text goals – light keyword overlap
+        if my_goals_text and other_goals_text:
+            keywords = ["run", "running", "marathon", "gym", "strength", "lift", "walk", "walks"]
+            overlap = [
+                kw for kw in keywords
+                if (kw in my_goals_text) and (kw in other_goals_text)
+            ]
+            if overlap:
+                score += 2
+                reasons.append("Matching interests: " + ", ".join(sorted(set(overlap))) )
+
+        return score, reasons
+
     try:
-        for d in users_ref.limit(30).stream():
+        raw_candidates = []
+        for d in users_ref.limit(50).stream():
             other_uid = d.id
             if other_uid in seen:
                 continue
             prof = d.to_dict() or {}
-            suggestions.append({"uid": other_uid, "profile": prof})
+            score, reasons = _compatibility_score(profile, prof)
+            if score <= 0:
+                continue
+            raw_candidates.append(
+                {
+                    "uid": other_uid,
+                    "profile": prof,
+                    "score": score,
+                    "reasons": reasons,
+                }
+            )
+
+        # Sort by score descending and take top N
+        raw_candidates.sort(key=lambda c: c.get("score", 0), reverse=True)
+        suggestions = raw_candidates[:20]
     except Exception:
         suggestions = []
+
+    # Simple text search across users (name, email, city, country, goals)
+    search_query = (request.args.get("q") or "").strip()
+    search_results = []
+    if search_query:
+        try:
+            q_lc = search_query.lower()
+            users_ref_search = db.collection("users").limit(100)
+            for d in users_ref_search.stream():
+                other_uid = d.id
+                if other_uid == uid:
+                    continue
+                prof = d.to_dict() or {}
+                # Build a searchable blob from key profile fields
+                blob = " ".join(
+                    str(prof.get(k, "") or "")
+                    for k in ["name", "email", "city", "country", "goals"]
+                ).lower()
+                if q_lc in blob:
+                    search_results.append({"uid": other_uid, "profile": prof})
+        except Exception:
+            search_results = []
+
+    # Load upcoming buddy meetups (runs / gym sessions) for this user
+    buddy_meetups = []
+    now_utc = datetime.now(timezone.utc)
+    try:
+        meetup_query = (
+            col(uid, "buddy_meetups")
+            .order_by("start_at", direction=firestore.Query.ASCENDING)
+            .limit(50)
+        )
+        for d in meetup_query.stream():
+            data = d.to_dict() or {}
+            start_at = data.get("start_at")
+            # Skip clearly old meetups (12h+ in the past)
+            if isinstance(start_at, datetime) and start_at < now_utc - timedelta(hours=12):
+                continue
+            data["id"] = d.id
+            buddy_meetups.append(data)
+    except Exception:
+        buddy_meetups = []
 
     return render_template(
         "buddies.html",
@@ -1725,7 +2457,161 @@ def buddies():
         incoming_requests=incoming_requests,
         outgoing_requests=outgoing_requests,
         suggested_buddies=suggestions,
+        search_query=search_query,
+        search_results=search_results,
+        buddy_meetups=buddy_meetups,
     )
+
+
+@app.route("/buddies/profile/<other_uid>")
+def buddies_profile(other_uid):
+    """Public-ish profile view for another user, with buddy request controls."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    # Your own profile uses the normal profile page
+    if uid == other_uid:
+        return redirect(url_for("profile"))
+
+    other_doc = db.collection("users").document(other_uid).get()
+    if not other_doc.exists:
+        return "User not found", 404
+
+    other_profile = other_doc.to_dict() or {}
+
+    link_snap = col(uid, "buddy_links").document(other_uid).get()
+    link_status = None
+    if link_snap.exists:
+        link_status = link_snap.to_dict().get("status")
+
+    return render_template(
+        "buddy_profile.html",
+        other_uid=other_uid,
+        profile=other_profile,
+        link_status=link_status,
+    )
+
+
+@app.route("/buddies/run_request/<other_uid>", methods=["POST"])
+def buddies_run_request(other_uid):
+    """Propose a run or gym workout with an existing buddy."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    if uid == other_uid:
+        flash("You can’t schedule a session with yourself.", "error")
+        return redirect(url_for("buddies"))
+
+    # Ensure they are already buddies
+    link_snap = col(uid, "buddy_links").document(other_uid).get()
+    if not link_snap.exists or link_snap.to_dict().get("status") != "accepted":
+        flash("You can only schedule sessions with accepted buddies.", "error")
+        return redirect(url_for("buddies"))
+
+    # Basic fields for a meetup
+    activity_type = (request.form.get("activity_type") or "run").strip().lower()
+    location_text = (request.form.get("location_text") or "").strip()
+    route_hint = (request.form.get("route_hint") or "").strip()
+    start_dt_str = (request.form.get("start_at") or "").strip()
+
+    now_utc = datetime.now(timezone.utc)
+    start_at = now_utc
+    if start_dt_str:
+        # Expecting HTML datetime-local style: YYYY-MM-DDTHH:MM
+        try:
+            # Parse as naive local and treat as UTC for simplicity
+            start_at = datetime.strptime(start_dt_str, "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
+        except ValueError:
+            flash("Could not parse the date/time, using now instead.", "info")
+
+    # Create a shared meetup id so both users can reference the same session
+    meetup_id = f"{uid}_{other_uid}_{int(time.time())}"
+
+    base_data = {
+        "meetup_id": meetup_id,
+        "created_by": uid,
+        "other_uid": other_uid,
+        "activity_type": activity_type,
+        "location_text": location_text,
+        "route_hint": route_hint,
+        "start_at": start_at,
+        "status": "proposed",  # proposed → accepted/declined/cancelled
+        "created_at": now_utc,
+    }
+
+    # Store a copy for both users so each can manage from their own account
+    col(uid, "buddy_meetups").document(meetup_id).set(base_data, merge=True)
+    mirror_data = dict(base_data)
+    mirror_data["other_uid"] = uid
+    col(other_uid, "buddy_meetups").document(meetup_id).set(mirror_data, merge=True)
+
+    flash("Session proposed to your buddy.", "success")
+    return redirect(url_for("buddies"))
+
+
+def _update_meetup_status(uid, other_uid, meetup_id, new_status):
+    """
+    Helper: update a meetup status for both users if the acting user is a participant.
+    """
+    my_ref = col(uid, "buddy_meetups").document(meetup_id)
+    snap = my_ref.get()
+    if not snap.exists:
+        return False
+
+    data = snap.to_dict() or {}
+    if data.get("other_uid") != other_uid and data.get("created_by") != other_uid:
+        # Not the right pairing; avoid touching unrelated docs
+        return False
+
+    my_ref.set({"status": new_status}, merge=True)
+    other_ref = col(other_uid, "buddy_meetups").document(meetup_id)
+    if other_ref.get().exists:
+        other_ref.set({"status": new_status}, merge=True)
+    return True
+
+
+@app.route("/buddies/meetup/<other_uid>/<meetup_id>/accept", methods=["POST"])
+def buddies_meetup_accept(other_uid, meetup_id):
+    """Accept a proposed buddy meetup."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    if _update_meetup_status(uid, other_uid, meetup_id, "accepted"):
+        flash("Session accepted – time to get moving!", "success")
+    else:
+        flash("Could not update this session.", "error")
+    return redirect(url_for("buddies"))
+
+
+@app.route("/buddies/meetup/<other_uid>/<meetup_id>/decline", methods=["POST"])
+def buddies_meetup_decline(other_uid, meetup_id):
+    """Decline a proposed buddy meetup."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    if _update_meetup_status(uid, other_uid, meetup_id, "declined"):
+        flash("Session declined.", "info")
+    else:
+        flash("Could not update this session.", "error")
+    return redirect(url_for("buddies"))
+
+
+@app.route("/buddies/meetup/<other_uid>/<meetup_id>/cancel", methods=["POST"])
+def buddies_meetup_cancel(other_uid, meetup_id):
+    """Cancel a proposed or accepted buddy meetup."""
+    uid, redirect_resp = require_login()
+    if redirect_resp:
+        return redirect_resp
+
+    if _update_meetup_status(uid, other_uid, meetup_id, "cancelled"):
+        flash("Session cancelled.", "info")
+    else:
+        flash("Could not update this session.", "error")
+    return redirect(url_for("buddies"))
 
 
 @app.route("/buddies/request/<other_uid>", methods=["POST"])

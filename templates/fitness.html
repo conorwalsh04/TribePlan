@@ -2,8 +2,19 @@
 {% block title %}Fitness Tracker | TribePlan{% endblock %}
 
 {% block content %}
+<!-- Fitness-themed hero with background video (use fitness-bg.mp4 in static/img/ for running/gym clip) -->
+<section class="page-hero page-hero-video page-hero-fitness">
+    <video class="page-hero-video-bg" autoplay muted loop playsinline>
+        <source src="{{ url_for('static', filename=topic_video_fitness_page) }}" type="video/mp4">
+    </video>
+    <div class="page-hero-overlay" aria-hidden="true"></div>
+    <div class="page-hero-content">
+        <h1 class="page-hero-title">Fitness</h1>
+        <p class="page-hero-sub">Log workouts, connect Strava, and sync runs and gym sessions.</p>
+    </div>
+</section>
+
 <div class="container mt-4">
-    <h2 class="text-center mb-4">Fitness Tracker</h2>
 
     <!-- Strava Connection Status -->
     <div class="row mb-4">

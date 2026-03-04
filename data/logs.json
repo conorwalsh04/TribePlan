@@ -63,5 +63,40 @@
         "date": "2025-11-10 13:34:21",
         "mood": "4",
         "journal": "im feeling good "
+    },
+    {
+        "date": "2025-11-15 18:06:28",
+        "mood": "5",
+        "journal": "testing testing I'm feeling very good today testing testing"
+    },
+    {
+        "date": "2025-11-16 01:33:42",
+        "mood": "3",
+        "journal": "claassssssss\r\n"
+    },
+    {
+        "date": "2025-11-16 10:13:35",
+        "mood": "4",
+        "journal": "testing if this works now"
+    },
+    {
+        "date": "2025-11-16 10:42:29",
+        "mood": "3",
+        "journal": "Conors first test "
+    },
+    {
+        "date": "2025-11-16 11:04:42",
+        "mood": "1",
+        "journal": "Helllloooo Tribeplan"
+    },
+    {
+        "date": "2025-11-16 11:13:09",
+        "mood": "3",
+        "journal": "pleasee work"
+    },
+    {
+        "date": "2025-11-16 11:26:38",
+        "mood": "3",
+        "journal": "work plssss"
     }
 ]

@@ -2,24 +2,64 @@
 {% block title %}Buddies | TribePlan{% endblock %}
 {% block content %}
 <div class="overlay-content container">
-  <div class="tribeplan-hero mb-4">
+  <div class="tribeplan-hero mb-3">
     <h1 class="h3 mb-1">Workout Buddies</h1>
-    <p class="lead mb-0 opacity-90">Find people with similar goals and locations to stay accountable and make training more fun.</p>
+    <p class="lead mb-1 opacity-90">Find people with similar goals and locations to stay accountable and make training more fun.</p>
+    <p class="text-muted small mb-0">Search for people, view their profile, send buddy requests, and plan shared runs or gym sessions.</p>
   </div>
 
+  {% if search_query %}
   <div class="card tribeplan-card mb-4">
     <div class="card-header">
-      <h5 class="mb-0">Planned features for next iteration</h5>
+      <h5 class="mb-0">Search results for “{{ search_query }}”</h5>
     </div>
     <div class="card-body">
-      <ul class="mb-0">
-        <li><strong>Smart matching</strong> – use your profile (goals, city/country, activity level) to suggest compatible buddies.</li>
-        <li><strong>Buddy requests</strong> – send and accept simple connection requests.</li>
-        <li><strong>Shared check‑ins</strong> – see each other’s recent mood/fitness streaks at a glance.</li>
-        <li><strong>Conversation starter prompts</strong> – light, AI‑assisted prompts to make it easy to say hello.</li>
-      </ul>
+      {% if search_results %}
+        <ul class="list-group mb-0">
+          {% for item in search_results %}
+            {% set p = item.profile %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong>
+                  <a href="{{ url_for('buddies_profile', other_uid=item.uid) }}" class="text-decoration-none">
+                    {{ p.name or 'User' }}
+                  </a>
+                </strong>
+                {% if p.city or p.country %}
+                  <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
+                {% endif %}
+                {% if p.goals %}
+                  <div class="text-muted small">{{ p.goals }}</div>
+                {% endif %}
+              </div>
+              <form method="POST" action="{{ url_for('buddies_request', other_uid=item.uid) }}">
+                <button type="submit" class="btn btn-sm btn-outline-primary">Connect</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted mb-0">No people found for that search.</p>
+      {% endif %}
     </div>
   </div>
+  {% endif %}
+
+  <form class="row g-2 mb-4" method="GET" action="{{ url_for('buddies') }}">
+    <div class="col-md-8">
+      <input
+        type="text"
+        class="form-control"
+        name="q"
+        placeholder="Search by name, email, city, country, or goals…"
+        value="{{ search_query or '' }}"
+      />
+    </div>
+    <div class="col-md-4 d-flex gap-2">
+      <button type="submit" class="btn btn-primary flex-grow-1">Search people</button>
+      <a href="{{ url_for('buddies') }}" class="btn btn-outline-secondary">Clear</a>
+    </div>
+  </form>
 
   <div class="row g-4 mb-4">
     <div class="col-md-6">
@@ -29,18 +69,28 @@
         </div>
         <div class="card-body">
           {% if suggested_buddies %}
-            <p class="text-muted small">Based on your country and excluding existing connections.</p>
+            <p class="text-muted small">Based on your profile (location, goals, and activity level) and excluding existing connections.</p>
             <ul class="list-group mb-0">
               {% for item in suggested_buddies %}
                 {% set p = item.profile %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                   <div>
-                    <strong>{{ p.name or 'User' }}</strong>
+                    <strong>
+                      <a href="{{ url_for('buddies_profile', other_uid=item.uid) }}" class="text-decoration-none">
+                        {{ p.name or 'User' }}
+                      </a>
+                    </strong>
                     {% if p.city or p.country %}
                       <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
                     {% endif %}
                     {% if p.goals %}
                       <div class="text-muted small">{{ p.goals }}</div>
+                    {% endif %}
+                    {% if item.reasons %}
+                      <div class="text-muted small">
+                        Match factors:
+                        {{ item.reasons | join(', ') }}
+                      </div>
                     {% endif %}
                   </div>
                   <form method="POST" action="{{ url_for('buddies_request', other_uid=item.uid) }}">
@@ -65,18 +115,46 @@
             <ul class="list-group mb-0">
               {% for item in current_buddies %}
                 {% set p = item.profile %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>{{ p.name or 'User' }}</strong>
-                    {% if p.city or p.country %}
-                      <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
-                    {% endif %}
-                    {% if p.goals %}
-                      <div class="text-muted small">{{ p.goals }}</div>
-                    {% endif %}
+                <li class="list-group-item">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                      <strong>
+                        <a href="{{ url_for('buddies_profile', other_uid=item.uid) }}" class="text-decoration-none">
+                          {{ p.name or 'User' }}
+                        </a>
+                      </strong>
+                      {% if p.city or p.country %}
+                        <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
+                      {% endif %}
+                      {% if p.goals %}
+                        <div class="text-muted small">{{ p.goals }}</div>
+                      {% endif %}
+                    </div>
+                    <form method="POST" action="{{ url_for('buddies_remove', other_uid=item.uid) }}" onsubmit="return confirm('Remove this buddy?');">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                    </form>
                   </div>
-                  <form method="POST" action="{{ url_for('buddies_remove', other_uid=item.uid) }}" onsubmit="return confirm('Remove this buddy?');">
-                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                  <form class="row g-2 align-items-end" method="POST" action="{{ url_for('buddies_run_request', other_uid=item.uid) }}">
+                    <div class="col-md-3 col-6">
+                      <label class="form-label form-label-sm mb-1">Type</label>
+                      <select name="activity_type" class="form-select form-select-sm">
+                        <option value="run">Run</option>
+                        <option value="gym">Gym workout</option>
+                        <option value="walk">Walk</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4 col-6">
+                      <label class="form-label form-label-sm mb-1">When</label>
+                      <input type="datetime-local" name="start_at" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-5">
+                      <label class="form-label form-label-sm mb-1">Where / route idea</label>
+                      <input type="text" name="location_text" class="form-control form-control-sm mb-1" placeholder="e.g. Phoenix Park loop" />
+                      <input type="text" name="route_hint" class="form-control form-control-sm" placeholder="e.g. easy 5km at 6:30/km" />
+                    </div>
+                    <div class="col-12 text-end">
+                      <button type="submit" class="btn btn-sm btn-primary">Propose session</button>
+                    </div>
                   </form>
                 </li>
               {% endfor %}
@@ -102,7 +180,11 @@
                 {% set p = item.profile %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                   <div>
-                    <strong>{{ p.name or 'User' }}</strong>
+                    <strong>
+                      <a href="{{ url_for('buddies_profile', other_uid=item.uid) }}" class="text-decoration-none">
+                        {{ p.name or 'User' }}
+                      </a>
+                    </strong>
                     {% if p.city or p.country %}
                       <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
                     {% endif %}
@@ -139,7 +221,11 @@
                 {% set p = item.profile %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                   <div>
-                    <strong>{{ p.name or 'User' }}</strong>
+                    <strong>
+                      <a href="{{ url_for('buddies_profile', other_uid=item.uid) }}" class="text-decoration-none">
+                        {{ p.name or 'User' }}
+                      </a>
+                    </strong>
                     {% if p.city or p.country %}
                       <span class="text-muted small"> — {{ p.city or '' }}{% if p.country %}, {{ p.country }}{% endif %}</span>
                     {% endif %}
@@ -163,12 +249,64 @@
 
   <div class="card tribeplan-card mb-4">
     <div class="card-header">
+      <h5 class="mb-0">Upcoming buddy sessions</h5>
+    </div>
+    <div class="card-body">
+      {% if buddy_meetups %}
+        <ul class="list-group mb-0">
+          {% for m in buddy_meetups %}
+            <li class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong class="text-capitalize">{{ m.activity_type or 'session' }}</strong>
+                  {% if m.start_at %}
+                    <span class="text-muted small">
+                      — {{ m.start_at | fmt_dt }}
+                    </span>
+                  {% endif %}
+                  {% if m.location_text %}
+                    <div class="text-muted small">{{ m.location_text }}</div>
+                  {% endif %}
+                  {% if m.route_hint %}
+                    <div class="text-muted small">{{ m.route_hint }}</div>
+                  {% endif %}
+                  <div class="text-muted small">
+                    Status: {{ m.status or 'proposed' }}
+                  </div>
+                </div>
+                <div class="d-flex gap-2">
+                  {% set is_creator = (m.created_by == session.get('user_id')) %}
+                  {% if m.status == 'proposed' and not is_creator %}
+                    <form method="POST" action="{{ url_for('buddies_meetup_accept', other_uid=m.other_uid, meetup_id=m.meetup_id) }}">
+                      <button type="submit" class="btn btn-sm btn-success">Accept</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('buddies_meetup_decline', other_uid=m.other_uid, meetup_id=m.meetup_id) }}">
+                      <button type="submit" class="btn btn-sm btn-outline-secondary">Decline</button>
+                    </form>
+                  {% elif m.status in ['proposed', 'accepted'] and is_creator %}
+                    <form method="POST" action="{{ url_for('buddies_meetup_cancel', other_uid=m.other_uid, meetup_id=m.meetup_id) }}">
+                      <button type="submit" class="btn btn-sm btn-outline-secondary">Cancel</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted mb-0">No upcoming sessions yet. Propose a run or workout with one of your buddies.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card tribeplan-card mb-4">
+    <div class="card-header">
       <h5 class="mb-0">Location & map</h5>
     </div>
     <div class="card-body">
       {% if not google_maps_api_key %}
         <p class="text-muted mb-2">
-          To enable maps in the next iteration, add a <code>GOOGLE_MAPS_API_KEY</code> to your <code>.env</code>
+          To enable the buddies map, add a <code>GOOGLE_MAPS_API_KEY</code> to your <code>.env</code>
           file (Google Cloud Console → Maps JavaScript API).
         </p>
       {% else %}
@@ -179,13 +317,13 @@
         <div class="border rounded bg-light p-2">
           <div id="buddies-map" style="height: 260px; width: 100%;"></div>
         </div>
+        <p class="text-muted small mt-2 mb-0">
+          Routes shown are suggested loops around your area to inspire safe, roughly circular runs and walks.
+        </p>
       {% endif %}
     </div>
   </div>
 
-  <p class="text-muted small mb-0">
-    This page is partially scaffolded – the map is live, but matching logic and messaging will be added in the next iteration.
-  </p>
 </div>
 {% if google_maps_api_key %}
   {% set js_location = map_location or 'Cork, IE' %}
@@ -216,20 +354,53 @@
           });
         }
 
-        // Dummy nearby buddies (for visualisation only)
-        const baseLat = center.lat || center.lat();
-        const baseLng = center.lng || center.lng();
-        const dummyBuddies = [
-          { name: 'Sarah – Morning runs', lat: baseLat + 0.01, lng: baseLng + 0.01 },
-          { name: 'Liam – Gym & strength', lat: baseLat - 0.008, lng: baseLng + 0.012 },
-          { name: 'Aoife – Yoga & walks', lat: baseLat + 0.006, lng: baseLng - 0.009 },
+        // Simple exploration routes: loops around the center with different lengths
+        let baseLat, baseLng;
+        if (typeof center.lat === 'function') {
+          baseLat = center.lat();
+          baseLng = center.lng();
+        } else {
+          baseLat = center.lat;
+          baseLng = center.lng;
+        }
+
+        const loopConfigs = [
+          { name: 'Easy city loop ~3km',  dLat: 0.010, dLng: 0.008, color: '#4caf50' },
+          { name: 'Steady 5km river loop', dLat: 0.015, dLng: -0.012, color: '#2196f3' },
+          { name: 'Explorer loop ~8km',   dLat: 0.022, dLng: 0.018, color: '#ff9800' },
         ];
 
-        dummyBuddies.forEach(b => {
-          new google.maps.Marker({
+        loopConfigs.forEach(cfg => {
+          const path = [
+            { lat: baseLat,               lng: baseLng },
+            { lat: baseLat + cfg.dLat,    lng: baseLng },
+            { lat: baseLat + cfg.dLat,    lng: baseLng + cfg.dLng },
+            { lat: baseLat,               lng: baseLng + cfg.dLng },
+            { lat: baseLat,               lng: baseLng },
+          ];
+
+          const polyline = new google.maps.Polyline({
+            path,
+            geodesic: true,
+            strokeColor: cfg.color,
+            strokeOpacity: 0.8,
+            strokeWeight: 3,
             map,
-            position: { lat: b.lat, lng: b.lng },
-            title: b.name,
+          });
+
+          const midPoint = path[2];
+          const marker = new google.maps.Marker({
+            position: midPoint,
+            map,
+            title: cfg.name,
+          });
+
+          const info = new google.maps.InfoWindow({
+            content: `<strong>${cfg.name}</strong><br/>Tap to explore this loop with a buddy.`,
+          });
+
+          marker.addListener('click', () => {
+            info.open(map, marker);
           });
         });
       });

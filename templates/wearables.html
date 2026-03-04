@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Wearables & Health Data | TribePlan{% endblock %}
+{% block content %}
+<div class="overlay-content container">
+  <div class="tribeplan-hero mb-4">
+    <h1 class="h3 mb-1">Wearables & Health Data</h1>
+    <p class="lead mb-1 opacity-90">
+      Log steps, sleep, and heart rate from any tracker or watch. One place for all your wearable data.
+    </p>
+    <p class="text-muted small mb-0">
+      Add data manually below, or sync activities from <strong>Strava</strong> (Garmin, Apple Watch, etc.) via
+      <a href="{{ url_for('integrations') }}" class="text-white-50 text-decoration-underline">Integrations</a>.
+    </p>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-5">
+      <div class="card tribeplan-card">
+        <div class="card-header">
+          <h5 class="mb-0">Log wearable data</h5>
+        </div>
+        <div class="card-body">
+          <form method="POST">
+            <div class="mb-2">
+              <label for="date" class="form-label small">Date</label>
+              <input type="date" id="date" name="date" class="form-control form-control-sm"
+                     value="{{ request.form.date or today_str }}">
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label for="steps" class="form-label small">Steps</label>
+                <input type="number" id="steps" name="steps" class="form-control form-control-sm" min="0" step="1"
+                       placeholder="e.g. 8500" value="{{ request.form.steps or '' }}">
+              </div>
+              <div class="col-6">
+                <label for="sleep_hours" class="form-label small">Sleep (hours)</label>
+                <input type="number" id="sleep_hours" name="sleep_hours" class="form-control form-control-sm"
+                       min="0" max="24" step="0.5" placeholder="e.g. 7.5" value="{{ request.form.sleep_hours or '' }}">
+              </div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label for="resting_hr" class="form-label small">Resting HR (bpm)</label>
+                <input type="number" id="resting_hr" name="resting_hr" class="form-control form-control-sm"
+                       min="30" max="120" placeholder="e.g. 58" value="{{ request.form.resting_hr or '' }}">
+              </div>
+              <div class="col-6">
+                <label for="active_minutes" class="form-label small">Active mins</label>
+                <input type="number" id="active_minutes" name="active_minutes" class="form-control form-control-sm"
+                       min="0" placeholder="e.g. 45" value="{{ request.form.active_minutes or '' }}">
+              </div>
+            </div>
+            <div class="mb-2">
+              <label for="notes" class="form-label small">Notes (optional)</label>
+              <input type="text" id="notes" name="notes" class="form-control form-control-sm"
+                     placeholder="e.g. Apple Watch, Garmin" value="{{ request.form.notes or '' }}">
+            </div>
+            <input type="hidden" name="source" value="manual">
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card tribeplan-card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Steps & sleep over time</h5>
+          <div class="btn-group btn-group-sm">
+            <a href="{{ url_for('wearables', days=7) }}" class="btn btn-outline-secondary{% if chart_data.days == 7 %} active{% endif %}">7d</a>
+            <a href="{{ url_for('wearables', days=14) }}" class="btn btn-outline-secondary{% if chart_data.days == 14 %} active{% endif %}">14d</a>
+            <a href="{{ url_for('wearables', days=30) }}" class="btn btn-outline-secondary{% if chart_data.days == 30 %} active{% endif %}">30d</a>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <canvas id="wearableStepsChart" height="140"></canvas>
+            </div>
+            <div class="col-md-6">
+              <canvas id="wearableSleepChart" height="140"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card tribeplan-card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Recent entries</h5>
+    </div>
+    <div class="card-body">
+      {% if logs %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Steps</th>
+                <th>Sleep (h)</th>
+                <th>Resting HR</th>
+                <th>Active (min)</th>
+                <th>Source</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for e in logs %}
+                <tr>
+                  <td>{{ e.date or '—' }}</td>
+                  <td>{{ e.steps if e.steps is not none else '—' }}</td>
+                  <td>{{ e.sleep_hours if e.sleep_hours is not none else '—' }}</td>
+                  <td>{{ e.resting_hr if e.resting_hr is not none else '—' }}</td>
+                  <td>{{ e.active_minutes if e.active_minutes is not none else '—' }}</td>
+                  <td><span class="badge bg-secondary">{{ e.source or 'manual' }}</span></td>
+                  <td>
+                    <form method="POST" action="{{ url_for('wearables_delete', log_id=e.id) }}" class="d-inline" onsubmit="return confirm('Remove this entry?');">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-muted mb-0">No wearable entries yet. Add steps, sleep, or heart rate above.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  const chartData = {{ chart_data | tojson }};
+  const opts = { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } },
+    scales: { x: { grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#adb5bd', maxTicksLimit: 8 } },
+              y: { grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#adb5bd' } } } };
+
+  if (document.getElementById('wearableStepsChart') && chartData.labels && chartData.steps) {
+    new Chart(document.getElementById('wearableStepsChart'), {
+      type: 'bar',
+      data: {
+        labels: chartData.labels,
+        datasets: [{
+          label: 'Steps',
+          data: chartData.steps,
+          backgroundColor: 'rgba(34, 197, 94, 0.5)',
+          borderColor: 'rgb(34, 197, 94)',
+          borderWidth: 1
+        }]
+      },
+      options: { ...opts, scales: { ...opts.scales, y: { ...opts.scales.y, beginAtZero: true } } }
+    });
+  }
+  if (document.getElementById('wearableSleepChart') && chartData.labels && chartData.sleep) {
+    new Chart(document.getElementById('wearableSleepChart'), {
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: [{
+          label: 'Sleep (hours)',
+          data: chartData.sleep,
+          borderColor: '#8b5cf6',
+          backgroundColor: 'rgba(139, 92, 246, 0.15)',
+          fill: true,
+          tension: 0.3,
+          spanGaps: true,
+          pointRadius: 2,
+          pointHoverRadius: 5
+        }]
+      },
+      options: { ...opts, scales: { ...opts.scales, y: { ...opts.scales.y, min: 0, max: 12 } } }
+    });
+  }
+})();
+</script>
+{% endblock %}

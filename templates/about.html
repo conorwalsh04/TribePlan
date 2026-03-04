@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}About TribePlan{% endblock %}
+
+{% block content %}
+{# Full-width hero with Conor_Hike video and overlayed copy #}
+<section class="about-hero-video mb-4">
+  <video class="about-hero-video-bg" autoplay muted loop playsinline>
+    <source src="{{ url_for('static', filename='img/Conor_Hike.mp4') }}" type="video/mp4">
+  </video>
+  <div class="about-hero-video-overlay"></div>
+  <div class="about-hero-video-content">
+    <h1>About TribePlan</h1>
+    <p class="lead mb-2">
+      One place for your mental, physical, nutritional, and social health – built by someone who&apos;s had to work on all four.
+    </p>
+    <p class="small mb-0">
+      TribePlan is a personal project by Conor, born from years of juggling training, mood, food, and friendships in different apps
+      and never quite seeing the full picture.
+    </p>
+  </div>
+</section>
+
+<div class="overlay-content container">
+  <div class="row g-4 align-items-start mb-4">
+    <div class="col-md-7">
+      <h2 class="h5 mb-3">Why TribePlan exists</h2>
+      <p class="mb-2">
+        I built TribePlan because I never saw my health as just one thing. There were seasons where training was great but
+        my head wasn&apos;t right. Other times I was eating well but felt disconnected from people. Trying to juggle
+        different apps and spreadsheets for mood, workouts, food, and friends felt messy and overwhelming.
+      </p>
+      <p class="mb-2">
+        TribePlan is my answer to that – a single place where you can see how your <strong>mind, body, nutrition, and
+        social life</strong> fit together. It&apos;s deliberately simple, focused on habits and awareness rather than
+        perfection or streaks for the sake of streaks.
+      </p>
+      <p class="mb-0">
+        This matters to me personally because I&apos;ve struggled with all of these areas at different points. Building
+        TribePlan is my way of turning that experience into something useful – a calm, encouraging space that helps you
+        feel a little more in control of your day.
+      </p>
+    </div>
+    <div class="col-md-5">
+      <div class="card tribeplan-card h-100">
+        <div class="card-body d-flex flex-column">
+          <img src="{{ url_for('static', filename='img/Conor_Fitness.JPG') }}" alt="Conor training" class="img-fluid rounded mb-3">
+          <h3 class="h6 text-muted mb-2">About Conor</h3>
+          <p class="small mb-2">
+            I&apos;m Conor, a student and lifelong learner who loves training, tech, and building things that actually help people.
+          </p>
+          <p class="small mb-2">
+            Sport, coaching, and community have been a huge part of my life – but so have patches of anxiety, burnout,
+            and feeling like I was never quite &quot;on top&quot; of my health.
+          </p>
+          <p class="small mb-0">
+            TribePlan is the app I wish I&apos;d had growing up – something that shows the full picture and makes taking
+            care of yourself feel less lonely.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-4">
+    <h2 class="h6 mb-2">From the archive</h2>
+    <p class="text-muted small mb-3">
+      A few moments that shaped why this app matters to me – sport, friends, cold dips for mental health, and the people who keep me going.
+    </p>
+    <div class="about-photo-grid">
+      <div class="about-photo-item">
+        <img src="{{ url_for('static', filename='img/Conor_Friends.JPG') }}" alt="Conor and friends at an event">
+      </div>
+      <div class="about-photo-item">
+        <img src="{{ url_for('static', filename='img/Conor_Football.jpg') }}" alt="Conor playing football">
+      </div>
+      <div class="about-photo-item">
+        <img src="{{ url_for('static', filename='img/Conor_Roberto.JPEG') }}" alt="Conor smiling at an event">
+      </div>
+      <div class="about-photo-item">
+        <img src="{{ url_for('static', filename='img/Conor_Fitness.JPG') }}" alt="Conor training in the gym">
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-6 col-lg-3">
+      <div class="card tribeplan-card h-100">
+        <div class="card-body">
+          <h3 class="h6 text-uppercase text-muted mb-2">Mental</h3>
+          <h4 class="h5 mb-2">Mood &amp; Headspace</h4>
+          <p class="small mb-0">
+            Daily check-ins, journaling, and Aura AI reflections help you notice patterns – not to judge yourself, but
+            to understand what lifts you up or drags you down.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="card tribeplan-card h-100">
+        <div class="card-body">
+          <h3 class="h6 text-uppercase text-muted mb-2">Physical</h3>
+          <h4 class="h5 mb-2">Movement &amp; Recovery</h4>
+          <p class="small mb-0">
+            Manual logs, Strava sync, and wearable data (steps, sleep, heart rate) give you a real view of how you move,
+            rest, and recover – beyond just chasing numbers.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="card tribeplan-card h-100">
+        <div class="card-body">
+          <h3 class="h6 text-uppercase text-muted mb-2">Nutrition</h3>
+          <h4 class="h5 mb-2">Fuel, Not Rules</h4>
+          <p class="small mb-0">
+            The food tracker is built to be realistic: simple logging, clear targets, and no guilt. The goal is to help
+            you fuel training, mood, and life – not obsess over every gram.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="card tribeplan-card h-100">
+        <div class="card-body">
+          <h3 class="h6 text-uppercase text-muted mb-2">Social</h3>
+          <h4 class="h5 mb-2">Your Tribe</h4>
+          <p class="small mb-0">
+            The buddy system is there because health is easier with people. Matching by location, goals, and activity
+            level makes it less awkward to find someone to train, walk, or check in with.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card tribeplan-card mb-3">
+    <div class="card-body text-center">
+      <h3 class="h5 mb-2">Where this is going</h3>
+      <p class="small mb-3">
+        TribePlan will keep evolving – tighter wearable sync, smarter prompts from Aura AI, and more ways to show your
+        progress without turning your life into a leaderboard. The core promise stays the same: gentle accountability,
+        clear insights, and a focus on the whole person.
+      </p>
+      <p class="small mb-0">
+        If you&apos;re using TribePlan, thank you. I&apos;m building this for people like us – who want to feel better,
+        perform better, and still live a real, messy, human life.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
