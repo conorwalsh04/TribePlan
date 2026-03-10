@@ -5,23 +5,41 @@ from dotenv import load_dotenv
 
 import firebase_admin
 from firebase_admin import credentials, firestore
+# Source: Firestore structured query filters
+# https://cloud.google.com/firestore/docs/query-data/queries
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from urllib.parse import quote_plus
 import secrets
+# Source: Python datetime documentation
+# Date and time handling: https://docs.python.org/3/library/datetime.html
 from datetime import datetime, timedelta, timezone
 import time
+# Source: Python Requests Library documentation
+# External API communication (Strava, USDA, Weather, OpenAI): https://docs.python-requests.org/
 import requests
 
-# Load environment variables
+# Development Note / AI Assistance Disclosure:
+# Portions of this application were developed with assistance from ChatGPT
+# for debugging, architectural guidance, and code refinement. Some code segments
+# were generated or refined using ChatGPT; all code was reviewed, tested, and
+# integrated manually into the TribePlan architecture and Firestore data model.
+
+# Source: python-dotenv documentation
+# Environment variable loading follows: https://pypi.org/project/python-dotenv/
+# Used to store API keys and secrets securely outside source code.
+# Load environment variables from .env (API keys, secrets, config)
 load_dotenv()
-print("STRAVA CLIENT ID:", os.getenv("STRAVA_CLIENT_ID"))
 
 # Firebase init
 cred = credentials.Certificate("firebase/tribeplan-service-account.json")
 firebase_admin.initialize_app(cred)
 
-# Firestore client
+# Source: Firebase Firestore Python SDK documentation; Firestore data modelling guidelines
+# https://firebase.google.com/docs/firestore
+# https://firebase.google.com/docs/firestore/manage-data/structure-data
+# User scoped collection structure (users/{uid}/subcollection) adapted for TribePlan.
+# Reference: Python - How To Create Firestore Database (YouTube) https://youtu.be/qsFYq_1BQdk
 db = firestore.client()
 
 # Flask app gotta be created before using @app.template_filter
@@ -71,7 +89,8 @@ TOPIC_VIDEO_CANDIDATES = {
     "nutrition_page": ["img/Nutrition2.mp4", "img/Nutrition.mp4", "img/nutrition-bg.mp4", "img/demo-screen.mp4"],
 }
 
-
+# Reference: Getting MP4 Video Duration with Python - Python Tutorial (YouTube)
+# https://youtu.be/ode6J5Xdo38 — conceptual reference for working with MP4/video in Python.
 def _topic_video_path(key: str) -> str:
     """Return static path for topic video (first existing candidate in list)."""
     candidates = TOPIC_VIDEO_CANDIDATES.get(key, ["img/demo-screen.mp4"])
@@ -107,6 +126,8 @@ print(f"  OPENAI_API_KEY: {'SET' if OPENAI_API_KEY else 'MISSING'} (Aura AI)")
 print("=" * 50)
 
 
+# Source: Google Cloud Firestore data modelling guidelines
+# users/{uid}/{name} subcollection pattern: https://firebase.google.com/docs/firestore/manage-data/structure-data
 def col(user_id: str, name: str):
     """users/{uid}/{name} collection ref"""
     return db.collection("users").document(user_id).collection(name)
@@ -124,6 +145,10 @@ def _strava_token_ref_legacy(user_id: str):
 
 # ===================== VALIDATION HELPERS =====================
 
+# Source: Server side input validation patterns inspired by Flask documentation
+# https://flask.palletsprojects.com/
+# Validation logic written with assistance from ChatGPT and adapted for
+# consistent mood, food, and fitness input checking.
 def validate_mood(val) -> tuple:
     """Validate mood 1–5. Returns (value, error_msg)."""
     try:
@@ -173,8 +198,15 @@ def fmt_dt(dt):
     except Exception:
         return str(dt)
 
+# Source: Flask documentation
+# Flask routing, request handling, and template rendering follow patterns from
+# https://flask.palletsprojects.com/
+# Structure adapted for TribePlan application development.
+# Source: Firebase Authentication documentation
+# Email/password authentication: https://firebase.google.com/docs/auth
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    """Register a new user with Firebase Auth, then create a basic Firestore user document."""
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
@@ -216,6 +248,7 @@ def register():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    """Log an existing user in using Firebase Auth and store their UID in the session."""
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
@@ -244,15 +277,24 @@ def login():
 
 @app.route("/logout")
 def logout():
+    """Log the current user out by clearing the session."""
     session.clear()
     return redirect(url_for("login"))
 
 
 def get_current_user_id():
+    """Convenience helper to fetch the current logged-in user's UID from the session."""
     return session.get("user_id")
 
 
 def require_login():
+    # Source: Flask session authentication pattern; Flask session management documentation
+    # https://flask.palletsprojects.com/en/latest/quickstart/#sessions
+    # Session used to store authenticated user UID; logic adapted for UID-based access control.
+    """
+    Guard helper for routes that require authentication.
+    Returns (uid, redirect_response) where redirect_response is non-None when not logged in.
+    """
     uid = get_current_user_id()
     if not uid:
         return None, redirect(url_for("login"))
@@ -260,6 +302,11 @@ def require_login():
 
 @app.route("/connect_strava")
 def connect_strava():
+    # Source: Strava API documentation
+    # OAuth authentication flow based on:
+    # https://developers.strava.com/docs/reference/
+    # Implementation adapted to start the OAuth dance for TribePlan users.
+    """Start Strava OAuth flow by redirecting the user to Strava's authorisation screen."""
     client_id = STRAVA_CLIENT_ID
     # Build http://localhost:5000/strava/callback automatically
     redirect_uri = url_for("strava_callback", _external=True)
@@ -280,6 +327,7 @@ def connect_strava():
     return redirect(auth_url)
 
 def is_strava_connected():
+    """Return True if the current user has a Strava token stored in Firestore."""
     uid = get_current_user_id()
     if not uid:
         return False
@@ -305,6 +353,11 @@ def get_strava_data_for_user(user_id: str):
 
 
 def get_strava_access_token_for_user(user_id: str):
+    # Source: Strava OAuth refresh token workflow
+    # Reference:
+    # https://developers.strava.com/docs/authentication/
+    # Code structure generated with assistance from ChatGPT during development
+    # and modified to integrate with Firestore token storage.
     """
     Return a valid Strava access token for the given user.
     Refreshes the token if it is expired, updating Firestore.
@@ -360,6 +413,10 @@ def get_strava_access_token_for_user(user_id: str):
     return new_access
 
 
+# Source: OAuth 2.0 Authorization Code Flow
+# Hardt, D. (2012) The OAuth 2.0 Authorization Framework. RFC 6749.
+# https://datatracker.ietf.org/doc/html/rfc6749
+# Implementation adapted for Strava authentication.
 @app.route("/strava/callback")
 def strava_callback():
     # Check for error from Strava (user denied access)
@@ -657,6 +714,7 @@ def home_view():
 
 @app.route('/mood', methods=['GET', 'POST'])
 def mood():
+    """Create and list mood log entries for the current user."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -694,6 +752,7 @@ def mood():
 
 @app.route('/mood/delete/<log_id>', methods=['POST'])
 def mood_delete(log_id):
+    """Delete a single mood log entry."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -714,6 +773,7 @@ def mood_delete(log_id):
 
 @app.route('/mood/edit/<log_id>', methods=['GET', 'POST'])
 def mood_edit(log_id):
+    """Edit an existing mood log entry."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -811,6 +871,7 @@ def _food_page_data(uid):
 # FOOD CRUD
 @app.route('/food', methods=['GET', 'POST'])
 def food():
+    """Create new food logs and show today's totals and targets."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -894,6 +955,10 @@ def _get_nutrient(food_nutrients, nutrient_id):
 
 
 def search_usda_food(query: str):
+    # Source: USDA FoodData Central API documentation
+    # Nutrition search implementation follows:
+    # https://fdc.nal.usda.gov/api-guide.html
+    # Nutrient ID mapping and response parsing adapted for TribePlan food logging.
     """
     Search USDA FoodData Central. Returns (calories, protein_g, carbs_g, fat_g, error_msg).
     Get free API key at https://fdc.nal.usda.gov/api-key-signup.html
@@ -929,6 +994,11 @@ def search_usda_food(query: str):
 
 
 def calculate_nutrition_goals(profile: dict):
+    # Source: Mifflin St Jeor BMR formula
+    # Mifflin MD et al. (1990) A new predictive equation for resting energy expenditure.
+    # American Journal of Clinical Nutrition.
+    # Implementation adapted for personalised nutrition targets in TribePlan.
+    # Code structure assisted by ChatGPT during development.
     """
     Calculate daily calorie and macro targets based on profile.
     Returns dict with daily_calories, protein_g, carbs_g, fat_g, goal_summary.
@@ -979,8 +1049,13 @@ def calculate_nutrition_goals(profile: dict):
         except (TypeError, ValueError):
             pass
 
-    # Macros: protein 1.6g/kg (higher for muscle), rest split 30% fat / 70% carbs
-    protein_g = round(w * 1.6)
+    # Macros: evidence-based protein by goal (g/kg), then 30% fat / 70% carbs of remainder
+    # Protein: ~2.0 g/kg maintain/lose (muscle preservation), ~2.2 g/kg gain (ISSN/position stands)
+    if goal_type == "gain":
+        protein_g = round(w * 2.2)
+    else:
+        protein_g = round(w * 2.0)
+    protein_g = max(protein_g, 50)  # minimum 50 g
     protein_cal = protein_g * 4
     remaining = max(0, daily_cal - protein_cal)
     fat_cal = remaining * 0.30
@@ -1031,9 +1106,7 @@ def calculate_nutrition_goals(profile: dict):
 
 @app.route("/food/nutrition", methods=["POST"])
 def food_nutrition():
-    """
-    Use USDA FoodData Central to estimate calories and macros for a meal.
-    """
+    """Use USDA FoodData Central to estimate calories and macros for a meal."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1075,7 +1148,7 @@ def food_nutrition():
 
 @app.route('/food/water', methods=['POST'])
 def food_water():
-    """Log water intake."""
+    """Log a water intake event for today in millilitres."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1092,6 +1165,7 @@ def food_water():
 
 @app.route('/food/edit/<log_id>', methods=['GET', 'POST'])
 def food_edit(log_id):
+    """Edit an existing food log entry."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1140,6 +1214,7 @@ def food_edit(log_id):
 
 @app.route('/food/delete/<log_id>', methods=['POST'])
 def food_delete(log_id):
+    """Delete a food log entry."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1151,6 +1226,7 @@ def food_delete(log_id):
 # FITNESS CRUD
 @app.route('/fitness', methods=['GET', 'POST'])
 def fitness():
+    """Create and list fitness/workout logs for the current user."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1204,10 +1280,7 @@ def fitness():
 
 @app.route("/fitness/strava_sync")
 def fitness_strava_sync():
-    """
-    Fetch recent Strava activities for the logged-in user and
-    add them to the fitness_logs subcollection (avoiding duplicates).
-    """
+    """Fetch recent Strava activities and import them into fitness logs, avoiding duplicates."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1291,6 +1364,7 @@ def fitness_strava_sync():
 
 @app.route('/fitness/edit/<log_id>', methods=['GET', 'POST'])
 def fitness_edit(log_id):
+    """Edit a fitness/workout log entry."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1326,6 +1400,7 @@ def fitness_edit(log_id):
 
 @app.route('/fitness/delete/<log_id>', methods=['POST'])
 def fitness_delete(log_id):
+    """Delete a fitness/workout log entry."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1502,6 +1577,7 @@ def api_wearables_chart():
 
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
+    """Create or update the user's profile (demographics, goals, preferences) and render the form."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1604,6 +1680,7 @@ def profile():
 
 @app.route("/dashboard")
 def dashboard():
+    """Dashboard view: high-level counts, charts, quote, and weather-based activity suggestion."""
     uid, redirect_resp = require_login()
     if redirect_resp:
         return redirect_resp
@@ -1834,6 +1911,10 @@ def _to_date_str(dt):
 
 
 def _get_chart_data(uid, days_back=14):
+    # Source: Data aggregation pattern based on Flask + Firestore query examples
+    # Reference:
+    # https://firebase.google.com/docs/firestore/query-data/get-data
+    # Aggregation logic designed for server side chart generation.
     """Return chart data for mood, food, fitness. Used by dashboard and API."""
     from collections import defaultdict
 
@@ -2135,6 +2216,8 @@ def _sanitize_aura_reply(text: str) -> str:
     return s.strip()
 
 
+# Reference: How to Use OpenAI API with Python | Latest Tutorial (YouTube)
+# https://youtu.be/CHsRy4gl6hk
 def _call_openai_chat(messages):
     """Call OpenAI's chat completions API for Aura. Returns (text, error)."""
     if not OPENAI_API_KEY:
@@ -2173,6 +2256,9 @@ def _call_openai_chat(messages):
         return None, f"Error calling OpenAI: {e}"
 
 
+# Source: REST API design principles
+# Fielding, R. (2000) Architectural Styles and the Design of Network-based Software Architectures.
+# Endpoint structure follows RESTful API design conventions.
 @app.route("/api/charts")
 def api_charts():
     """Return chart data for mood, food, and fitness. Query param: days=7|14|30 (default 14)."""
@@ -2271,6 +2357,10 @@ def aura():
 
 @app.route("/buddies")
 def buddies():
+    # Source: Google Maps JavaScript API documentation
+    # https://developers.google.com/maps/documentation/javascript
+    # Reference: Getting Started with Google Maps APIs in Python (YouTube) https://youtu.be/HChq5_7yTGk
+    # Backend integration adapted for TribePlan buddy location visualisation.
     """Buddy system page: suggestions, requests, and current buddies."""
     uid, redirect_resp = require_login()
     if redirect_resp:

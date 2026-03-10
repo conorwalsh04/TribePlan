@@ -4,21 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="74d32485-f493-453d-abf3-3ec48734aa73" name="Changes" comment="Third Push">
-      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
+    <list default="true" id="74d32485-f493-453d-abf3-3ec48734aa73" name="Changes" comment="Iteration 6">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/aura.logic.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/logs.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/logs.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/firebase/tribeplan-service-account.json" beforeDir="false" afterPath="$PROJECT_DIR$/firebase/tribeplan-service-account.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/static/css/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/static/css/styles.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/aura.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/aura.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/base.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/base.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/about.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/about.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/templates/buddies.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/buddies.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/fitness.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/fitness.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/dashboard.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/templates/food.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/food.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/home.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/home.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/mood.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/mood.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -196,6 +190,11 @@
       <workItem from="1772034315864" duration="9470000" />
       <workItem from="1772405044690" duration="19149000" />
       <workItem from="1772620630013" duration="58000" />
+      <workItem from="1772626905088" duration="14309000" />
+      <workItem from="1772720898735" duration="8132000" />
+      <workItem from="1772754092601" duration="2236000" />
+      <workItem from="1772796983129" duration="1106000" />
+      <workItem from="1772982552441" duration="4696000" />
     </task>
     <task id="LOCAL-00001" summary="First">
       <option name="closed" value="true" />
@@ -245,7 +244,15 @@
       <option name="project" value="LOCAL" />
       <updated>1752703590539</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Iteration 6">
+      <option name="closed" value="true" />
+      <created>1772626970494</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1772626970494</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -266,9 +273,10 @@
     <MESSAGE value="First" />
     <MESSAGE value="Second push" />
     <MESSAGE value="Third Push" />
-    <option name="LAST_COMMIT_MESSAGE" value="Third Push" />
+    <MESSAGE value="Iteration 6" />
+    <option name="LAST_COMMIT_MESSAGE" value="Iteration 6" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/TribePlan$app.coverage" NAME="app Coverage Results" MODIFIED="1772556659311" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/TribePlan$app.coverage" NAME="app Coverage Results" MODIFIED="1773071345397" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

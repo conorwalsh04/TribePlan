@@ -162,7 +162,7 @@
                 </form>
             </div>
             <div class="progress" style="height: 8px; max-width: 300px;">
-                <div class="progress-bar bg-primary" style="width: {{ [100, (today_water / water_target * 100)|int] if water_target else 0 }}%"></div>
+                <div class="progress-bar bg-primary" role="progressbar" style="width: {% if water_target %}{{ [100, (today_water / water_target * 100)|int]|min }}{% else %}0{% endif %}%;" aria-valuenow="{{ today_water }}" aria-valuemin="0" aria-valuemax="{{ water_target }}"></div>
             </div>
         </div>
     </div>

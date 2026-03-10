@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Buddies | TribePlan{% endblock %}
 {% block content %}
-<div class="overlay-content container">
-  <div class="tribeplan-hero mb-3">
-    <h1 class="h3 mb-1">Workout Buddies</h1>
-    <p class="lead mb-1 opacity-90">Find people with similar goals and locations to stay accountable and make training more fun.</p>
-    <p class="text-muted small mb-0">Search for people, view their profile, send buddy requests, and plan shared runs or gym sessions.</p>
+{# Buddies hero with background photo (friends/social theme) #}
+<section class="page-hero page-hero-buddies">
+  <div class="page-hero-overlay" aria-hidden="true"></div>
+  <div class="page-hero-content">
+    <h1 class="page-hero-title">Workout Buddies</h1>
+    <p class="page-hero-sub">Find people with similar goals and locations to stay accountable and make training more fun.</p>
   </div>
+</section>
+
+<div class="overlay-content container">
 
   {% if search_query %}
   <div class="card tribeplan-card mb-4">

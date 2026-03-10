@@ -11557,7 +11557,7 @@ main.home-main {
 /* ========== Page heroes with topic video (Mood, Fitness, Nutrition) ========== */
 .page-hero {
   position: relative;
-  min-height: 42vh;
+  min-height: 52vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11595,6 +11595,17 @@ main.home-main {
 
 .page-hero-nutrition .page-hero-overlay {
   background: linear-gradient(180deg, rgba(22, 101, 52, 0.65) 0%, rgba(15, 23, 42, 0.85) 100%);
+}
+
+/* Buddies header: background image (friends/social photo) – slightly below top so faces are in frame */
+.page-hero-buddies {
+  background-image: url("../img/buddies-header.png");
+  background-size: cover;
+  background-position: center 20%;
+  background-repeat: no-repeat;
+}
+.page-hero-buddies .page-hero-overlay {
+  background: linear-gradient(180deg, rgba(30, 58, 138, 0.5) 0%, rgba(15, 23, 42, 0.88) 100%);
 }
 
 .page-hero-content {
@@ -11764,6 +11775,20 @@ main.home-main {
 }
 .about-hero-video-content .small {
   opacity: 0.8;
+}
+
+/* About Conor card: side-by-side photos, same size */
+.about-conor-photos .about-conor-img {
+  width: 100%;
+  height: 380px;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+/* Young Conor (left): align to top so face is visible; slight brightness boost */
+.about-conor-photos .col-6:first-child .about-conor-img {
+  object-position: center top;
+  filter: brightness(1.2) contrast(1.05);
 }
 
 .about-photo-grid {
